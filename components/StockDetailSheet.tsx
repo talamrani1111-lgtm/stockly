@@ -114,6 +114,7 @@ export default function StockDetailSheet({ symbol, quote, portfolioItem, forex, 
   const [alertDir, setAlertDir] = useState<"above" | "below">("above");
   const [showAlertForm, setShowAlertForm] = useState(false);
   const [alertSaved, setAlertSaved] = useState(false);
+  const [stopLossPct, setStopLossPct] = useState("5");
   const startY = useRef(0);
 
   useEffect(() => {
@@ -326,6 +327,48 @@ export default function StockDetailSheet({ symbol, quote, portfolioItem, forex, 
                   </p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Stop Loss */}
+          {portfolioItem && price > 0 && (
+            <div className="bg-brand-red/8 border border-brand-red/20 rounded-2xl p-4">
+              <p className="text-white text-sm font-semibold mb-3">
+                🛡 {isRTL ? "Stop Loss אוטומטי" : "Auto Stop Loss"}
+              </p>
+              <p className="text-gray-400 text-xs mb-3">
+                {isRTL
+                  ? "קבל התראה כשהמניה יורדת X% מתחת למחיר הקנייה שלך"
+                  : "Get alerted when price drops X% below your buy price"}
+              </p>
+              <div className="flex gap-2">
+                {["3", "5", "10", "15"].map(pct => (
+                  <button key={pct} onClick={() => setStopLossPct(pct)}
+                    className={clsx("flex-1 py-2 rounded-xl text-xs font-bold border transition-all",
+                      stopLossPct === pct
+                        ? "bg-brand-red/30 border-brand-red/50 text-brand-red"
+                        : "bg-white/5 border-white/10 text-gray-400")}>
+                    -{pct}%
+                  </button>
+                ))}
+              </div>
+              {portfolioItem.avgPrice > 0 && (
+                <p className="text-gray-500 text-xs mt-2 mb-3">
+                  {isRTL ? "יעד:" : "Target:"}{" "}
+                  <span className="text-brand-red font-semibold">
+                    ${(portfolioItem.avgPrice * (1 - parseFloat(stopLossPct) / 100)).toFixed(2)}
+                  </span>
+                  {" "}({isRTL ? "עלות קנייה" : "buy price"} ${portfolioItem.avgPrice.toFixed(2)})
+                </p>
+              )}
+              <button onClick={() => {
+                const stopPrice = portfolioItem.avgPrice * (1 - parseFloat(stopLossPct) / 100);
+                onSetAlert(symbol, parseFloat(stopPrice.toFixed(2)), "below");
+                navigator.vibrate?.([20, 10, 20]);
+              }}
+                className="w-full py-2.5 rounded-xl bg-brand-red/20 hover:bg-brand-red/30 text-brand-red text-sm font-semibold border border-brand-red/30 transition-all">
+                {isRTL ? "הגדר Stop Loss" : "Set Stop Loss"}
+              </button>
             </div>
           )}
 

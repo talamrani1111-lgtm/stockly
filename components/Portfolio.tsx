@@ -7,6 +7,7 @@ import StockDetailSheet from "./StockDetailSheet";
 import PortfolioSparkline, { savePortfolioValue } from "./PortfolioSparkline";
 import ShareExport from "./ShareExport";
 import PortfolioDonut from "./PortfolioDonut";
+import PortfolioStats from "./PortfolioStats";
 
 type Quote = { symbol: string; price: number; change: number; changePercent: number };
 type PriceTarget = { targetMean: number; targetHigh: number; targetLow: number; recommendation: string | null; numberOfAnalysts: number | null };
@@ -357,6 +358,16 @@ export default function Portfolio() {
       {/* Allocation donut */}
       {!loading && portfolio.length > 1 && (
         <PortfolioDonut quotes={quotes} forex={forex} />
+      )}
+
+      {/* Portfolio analytics */}
+      {!loading && portfolio.length > 0 && (
+        <PortfolioStats
+          quotes={quotes}
+          forex={forex}
+          totalPnL={totalPnL}
+          totalCostUSD={totalCostUSD}
+        />
       )}
 
       {/* Stock cards */}
