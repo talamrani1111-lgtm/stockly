@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Black rounded background -->
+  <rect width="100" height="100" rx="22" fill="#0a0d14"/>
+
+  <!-- Green S letter -->
+  <text
+    x="50" y="70"
+    text-anchor="middle"
+    font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif"
+    font-size="68"
+    font-weight="800"
+    fill="#22c55e"
+    letter-spacing="-2"
+  >S</text>
+
+  <!-- Subtle upward trend line accent -->
+  <polyline
+    points="18,78 32,68 46,72 62,58 78,48"
+    fill="none"
+    stroke="#22c55e"
+    stroke-width="3"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    opacity="0.35"
+  />
+</svg>

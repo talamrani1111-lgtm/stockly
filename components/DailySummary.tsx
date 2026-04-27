@@ -1,0 +1,167 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useApp } from "@/lib/context";
+import { TrendingUp, TrendingDown, Newspaper, RefreshCw } from "lucide-react";
+import clsx from "clsx";
+
+type Quote = { symbol: string; price: number; change: number; changePercent: number; high: number; low: number };
+type NewsItem = { headline: string; url: string; source: string; datetime: number };
+type SymbolDay = {
+  symbol: string;
+  quote: Quote | null;
+  news: NewsItem[];
+};
+
+export default function DailySummary() {
+  const { portfolio, isRTL } = useApp();
+  const [data, setData] = useState<SymbolDay[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const symbols = portfolio.filter(p => !p.manualPrice && p.currency !== "ILS").map(p => p.symbol);
+
+  async function load() {
+    if (!symbols.length) { setLoading(false); return; }
+    try {
+      const quotesRes = await fetch(`/api/stocks?symbols=${symbols.join(",")}`);
+      const quotes: Quote[] = await quotesRes.json();
+      const quoteMap: Record<string, Quote> = {};
+      quotes.forEach(q => { quoteMap[q.symbol] = q; });
+
+      const today = new Date();
+      const from = today.toISOString().slice(0, 10);
+      const to = from;
+
+      const newsResults = await Promise.all(
+        symbols.map(sym =>
+          fetch(`/api/news?symbols=${sym}`)
+            .then(r => r.json())
+            .then(d => ({ sym, news: Array.isArray(d) ? d.slice(0, 2) : [] }))
+            .catch(() => ({ sym, news: [] }))
+        )
+      );
+
+      const result: SymbolDay[] = symbols.map(sym => ({
+        symbol: sym,
+        quote: quoteMap[sym] ?? null,
+        news: newsResults.find(n => n.sym === sym)?.news ?? [],
+      }));
+
+      // Sort by absolute change (biggest movers first)
+      result.sort((a, b) => Math.abs(b.quote?.changePercent ?? 0) - Math.abs(a.quote?.changePercent ?? 0));
+      setData(result);
+    } catch {}
+    setLoading(false);
+    setRefreshing(false);
+  }
+
+  useEffect(() => { load(); }, []); // eslint-disable-line
+
+  async function refresh() {
+    setRefreshing(true);
+    await load();
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="bg-brand-card border border-brand-border rounded-2xl p-4">
+            <div className="shimmer h-4 w-16 mb-3" />
+            <div className="shimmer h-3 w-full mb-2" />
+            <div className="shimmer h-3 w-3/4" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div dir={isRTL ? "rtl" : "ltr"}>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-white font-bold text-base">
+          {isRTL ? "מה קרה היום" : "What Happened Today"}
+        </h2>
+        <button onClick={refresh} className={clsx("text-gray-500 hover:text-white transition-colors", refreshing && "animate-spin")}>
+          <RefreshCw size={14} />
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {data.map(({ symbol, quote, news }) => {
+          const up = (quote?.changePercent ?? 0) >= 0;
+          const portfolioItem = portfolio.find(p => p.symbol === symbol);
+          const pnlDay = quote && portfolioItem
+            ? quote.change * portfolioItem.shares
+            : null;
+
+          return (
+            <div key={symbol} className={clsx(
+              "rounded-2xl p-4 border",
+              up ? "bg-green-gradient border-brand-green/20" : "bg-red-gradient border-brand-red/20"
+            )}>
+              {/* Header */}
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className={clsx("w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0",
+                    up ? "bg-brand-green/20" : "bg-brand-red/20")}>
+                    {up ? <TrendingUp size={14} className="text-brand-green" /> : <TrendingDown size={14} className="text-brand-red" />}
+                  </span>
+                  <div>
+                    <span className="text-white font-bold text-sm">{symbol}</span>
+                    {quote && (
+                      <p className="text-gray-400 text-xs">${quote.price.toFixed(2)}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="text-end">
+                  {quote && (
+                    <p className={clsx("text-base font-bold", up ? "text-brand-green" : "text-brand-red")}>
+                      {up ? "▲" : "▼"} {Math.abs(quote.changePercent).toFixed(2)}%
+                    </p>
+                  )}
+                  {pnlDay !== null && (
+                    <p className={clsx("text-xs font-semibold", pnlDay >= 0 ? "text-brand-green" : "text-brand-red")}>
+                      {pnlDay >= 0 ? "+" : ""}${Math.abs(pnlDay).toFixed(0)} {isRTL ? "היום" : "today"}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Day range */}
+              {quote && (
+                <div className="flex gap-3 mb-3">
+                  <span className="text-gray-500 text-[10px]">
+                    {isRTL ? "טווח יומי:" : "Range:"}{" "}
+                    <span className="text-gray-400">${quote.low.toFixed(2)} – ${quote.high.toFixed(2)}</span>
+                  </span>
+                </div>
+              )}
+
+              {/* News */}
+              {news.length > 0 && (
+                <div className="border-t border-white/5 pt-2.5 space-y-2">
+                  {news.map((item, i) => (
+                    <a key={i} href={item.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-start gap-2 group">
+                      <Newspaper size={11} className="text-gray-600 mt-0.5 flex-shrink-0" />
+                      <span className="text-gray-400 text-[11px] line-clamp-2 group-hover:text-gray-200 transition-colors leading-4">
+                        {item.headline}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              {news.length === 0 && (
+                <p className="text-gray-600 text-[11px] border-t border-white/5 pt-2.5">
+                  {isRTL ? "אין חדשות ספציפיות היום" : "No specific news today"}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
