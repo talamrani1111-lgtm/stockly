@@ -1,4 +1,10 @@
 .next/
 node_modules/
 .env.local
+.env.local.*
 .env
+.env.*
+.users.json
+.push-subscription.json
+.app-state.json
+tsconfig.tsbuildinfo
