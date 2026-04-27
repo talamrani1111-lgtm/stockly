@@ -3,7 +3,7 @@ import path from "path";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 
-const DB_FILE = path.join(process.cwd(), ".users.json");
+const DB_FILE = process.env.VERCEL ? "/tmp/users.json" : path.join(process.cwd(), ".users.json");
 
 export type User = {
   id: string;

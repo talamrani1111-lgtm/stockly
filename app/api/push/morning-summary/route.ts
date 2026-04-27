@@ -3,7 +3,7 @@ import webpush from "web-push";
 import fs from "fs";
 import path from "path";
 
-const SUB_FILE = path.join(process.cwd(), ".push-subscription.json");
+const SUB_FILE = process.env.VERCEL ? "/tmp/push-subscription.json" : path.join(process.cwd(), ".push-subscription.json");
 
 const DEFAULT_PORTFOLIO = [
   { symbol: "QQQ", shares: 5, avgPrice: 600, currency: "USD" },

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
-const FILE = path.join(process.cwd(), ".push-subscription.json");
+const FILE = process.env.VERCEL ? "/tmp/push-subscription.json" : path.join(process.cwd(), ".push-subscription.json");
 
 export async function POST(req: NextRequest) {
   const { subscription } = await req.json();
