@@ -5,13 +5,12 @@ import path from "path";
 
 const FILE = path.join(process.cwd(), ".push-subscription.json");
 
-webpush.setVapidDetails(
-  "mailto:stockly@app.local",
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
-
 export async function POST(req: NextRequest) {
+  webpush.setVapidDetails(
+    "mailto:stockly@app.local",
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!
+  );
   const { title, body } = await req.json();
 
   let subscription;

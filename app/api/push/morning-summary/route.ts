@@ -5,12 +5,6 @@ import path from "path";
 
 const SUB_FILE = path.join(process.cwd(), ".push-subscription.json");
 
-webpush.setVapidDetails(
-  "mailto:stockly@app.local",
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
-
 const DEFAULT_PORTFOLIO = [
   { symbol: "QQQ", shares: 5, avgPrice: 600, currency: "USD" },
   { symbol: "VOO", shares: 7, avgPrice: 629, currency: "USD" },
@@ -19,6 +13,11 @@ const DEFAULT_PORTFOLIO = [
 
 export async function GET() {
   try {
+    webpush.setVapidDetails(
+      "mailto:stockly@app.local",
+      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+      process.env.VAPID_PRIVATE_KEY!
+    );
     // Load saved portfolio from app state if available (fallback to defaults)
     let portfolio = DEFAULT_PORTFOLIO;
     const stateFile = path.join(process.cwd(), ".app-state.json");
