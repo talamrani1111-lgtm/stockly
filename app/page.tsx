@@ -30,7 +30,7 @@ export default function Home() {
   const touchStartY = useRef(0);
 
   useEffect(() => {
-    const token = localStorage.getItem("auth_token");
+    const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
     if (!token) { setAuthed(false); return; }
     fetch("/api/auth/verify", {
       method: "POST",

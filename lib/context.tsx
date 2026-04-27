@@ -79,6 +79,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (s.alerts) setAlertsState(s.alerts);
       if (s.cryptoPortfolio) setCryptoPortfolioState(s.cryptoPortfolio);
     }
+    // Load portfolio from server (syncs across devices)
+    const token = localStorage.getItem("auth_token");
+    if (token) {
+      fetch("/api/portfolio", { headers: { "Authorization": `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(data => { if (Array.isArray(data) && data.length > 0) setPortfolioState(data); })
+        .catch(() => {});
+    }
   }, []);
 
   function persist(patch: object) {
@@ -87,7 +95,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   function setLang(l: Lang) { setLangState(l); persist({ lang: l }); }
-  function setPortfolio(p: PortfolioItem[]) { setPortfolioState(p); persist({ portfolio: p }); }
+  function setPortfolio(p: PortfolioItem[]) {
+    setPortfolioState(p);
+    persist({ portfolio: p });
+    // Sync to server
+    const token = localStorage.getItem("auth_token");
+    if (token) {
+      fetch("/api/portfolio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify(p),
+      }).catch(() => {});
+    }
+  }
   function setWatchlist(w: string[]) { setWatchlistState(w); persist({ watchlist: w }); }
   function setSelectedSectors(s: string[]) { setSelectedSectorsState(s); persist({ selectedSectors: s }); }
   function setCustomSectors(s: CustomSector[]) { setCustomSectorsState(s); persist({ customSectors: s }); }

@@ -14,6 +14,7 @@ export default function LoginScreen({ onLogin, onRegister, lang }: Props) {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
 
   const isRTL = lang === "he";
 
@@ -33,7 +34,12 @@ export default function LoginScreen({ onLogin, onRegister, lang }: Props) {
       if (!res.ok) {
         setError(data.error ?? (lang === "he" ? "שגיאה בכניסה" : "Login failed"));
       } else {
-        localStorage.setItem("auth_token", data.token);
+        if (rememberMe) {
+          localStorage.setItem("auth_token", data.token);
+        } else {
+          sessionStorage.setItem("auth_token", data.token);
+          localStorage.removeItem("auth_token");
+        }
         onLogin(data.token);
       }
     } catch {
@@ -95,6 +101,19 @@ export default function LoginScreen({ onLogin, onRegister, lang }: Props) {
               {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
+
+          {/* Remember me */}
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <div onClick={() => setRememberMe(!rememberMe)}
+              className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                rememberMe ? "bg-brand-accent border-brand-accent" : "border-gray-600 bg-transparent"
+              }`}>
+              {rememberMe && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            </div>
+            <span className="text-gray-400 text-sm">
+              {lang === "he" ? "זכור אותי" : "Remember me"}
+            </span>
+          </label>
 
           {/* Error */}
           {error && (

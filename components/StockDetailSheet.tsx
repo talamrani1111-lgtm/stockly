@@ -31,6 +31,7 @@ type PriceTarget = {
   targetLow?: number;
   recommendation?: string;
   numberOfAnalysts?: number;
+  breakdown?: { strongBuy: number; buy: number; hold: number; sell: number; strongSell: number } | null;
 };
 
 const TV_SYMBOLS: Record<string, string> = {
@@ -195,36 +196,86 @@ export default function StockDetailSheet({ symbol, quote, portfolioItem, forex, 
                   {target.numberOfAnalysts ? ` · ${target.numberOfAnalysts} ${isRTL ? "אנליסטים" : "analysts"}` : ""}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+
+              {/* Price + consensus */}
+              <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="text-white text-lg font-bold">${fmt(target.targetMean)}</p>
-                  <p className="text-gray-500 text-xs">${fmt(target.targetLow)} – ${fmt(target.targetHigh)}</p>
+                  <p className="text-white text-2xl font-bold">${fmt(target.targetMean)}</p>
+                  <p className="text-gray-500 text-xs mt-0.5">
+                    {isRTL ? "טווח:" : "Range:"} ${fmt(target.targetLow, 0)} – ${fmt(target.targetHigh, 0)}
+                  </p>
                 </div>
                 {target.recommendation && REC_LABELS[target.recommendation] && (
-                  <span className={clsx("text-sm font-bold px-3 py-1.5 rounded-xl bg-white/5",
-                    REC_LABELS[target.recommendation].color)}>
-                    {isRTL ? REC_LABELS[target.recommendation].he : REC_LABELS[target.recommendation].en}
-                  </span>
+                  <div className="text-end">
+                    <span className={clsx("text-base font-bold", REC_LABELS[target.recommendation].color)}>
+                      {isRTL ? REC_LABELS[target.recommendation].he : REC_LABELS[target.recommendation].en}
+                    </span>
+                    {price > 0 && target.targetMean && (
+                      <p className={clsx("text-xs font-semibold mt-0.5", target.targetMean > price ? "text-brand-green" : "text-brand-red")}>
+                        {target.targetMean > price ? "▲ +" : "▼ "}
+                        {Math.abs(((target.targetMean - price) / price) * 100).toFixed(1)}% {isRTL ? "פוטנציאל" : "upside"}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
-              {/* Upside bar */}
+
+              {/* Range bar */}
               {price > 0 && target.targetLow && target.targetHigh && (
-                <div className="mt-3">
-                  <div className="relative h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div className="absolute inset-y-0 left-0 bg-brand-accent/40 rounded-full"
-                      style={{ width: `${Math.min(100, Math.max(0, ((price - target.targetLow) / (target.targetHigh - target.targetLow)) * 100))}%` }} />
-                    <div className="absolute inset-y-0 w-0.5 bg-white rounded-full"
+                <div className="mb-4">
+                  <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div className="absolute inset-y-0 left-0 rounded-full"
+                      style={{
+                        width: `${Math.min(100, Math.max(0, ((price - target.targetLow) / (target.targetHigh - target.targetLow)) * 100))}%`,
+                        background: "linear-gradient(90deg, #ef444440, #3b82f6)"
+                      }} />
+                    <div className="absolute inset-y-0 w-1 bg-white rounded-full -translate-x-0.5"
                       style={{ left: `${Math.min(99, Math.max(0, ((price - target.targetLow) / (target.targetHigh - target.targetLow)) * 100))}%` }} />
                   </div>
                   <div className="flex justify-between mt-1">
-                    <span className="text-gray-600 text-[10px]">${fmt(target.targetLow, 0)}</span>
-                    <span className={clsx("text-[10px] font-semibold", target.targetMean > price ? "text-brand-green" : "text-brand-red")}>
-                      {target.targetMean > price ? "▲" : "▼"} {Math.abs(((target.targetMean - price) / price) * 100).toFixed(0)}% {isRTL ? "פוטנציאל" : "upside"}
-                    </span>
-                    <span className="text-gray-600 text-[10px]">${fmt(target.targetHigh, 0)}</span>
+                    <span className="text-gray-600 text-[10px]">{isRTL ? "שפל" : "Low"} ${fmt(target.targetLow, 0)}</span>
+                    <span className="text-gray-500 text-[10px]">{isRTL ? "מחיר נוכחי" : "Current"} ${fmt(price, 0)}</span>
+                    <span className="text-gray-600 text-[10px]">{isRTL ? "שיא" : "High"} ${fmt(target.targetHigh, 0)}</span>
                   </div>
                 </div>
               )}
+
+              {/* Breakdown bars */}
+              {target.breakdown && (() => {
+                const b = target.breakdown!;
+                const total = b.strongBuy + b.buy + b.hold + b.sell + b.strongSell || 1;
+                const bars = [
+                  { label: isRTL ? "קנייה חזקה" : "Strong Buy", val: b.strongBuy, color: "#22c55e" },
+                  { label: isRTL ? "קנייה" : "Buy",              val: b.buy,       color: "#86efac" },
+                  { label: isRTL ? "החזק" : "Hold",              val: b.hold,      color: "#f59e0b" },
+                  { label: isRTL ? "מכירה" : "Sell",             val: b.sell,      color: "#f87171" },
+                  { label: isRTL ? "מכירה חזקה" : "Strong Sell", val: b.strongSell,color: "#ef4444" },
+                ];
+                return (
+                  <div>
+                    <p className="text-gray-500 text-[10px] font-medium mb-2">
+                      {isRTL ? "המלצות אנליסטים" : "Analyst Recommendations"}
+                    </p>
+                    <div className="space-y-1.5">
+                      {bars.map(({ label, val, color }) => val > 0 && (
+                        <div key={label} className="flex items-center gap-2">
+                          <span className="text-[10px] text-gray-400 w-20 flex-shrink-0">{label}</span>
+                          <div className="flex-1 h-2 bg-white/8 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all"
+                              style={{ width: `${(val / total) * 100}%`, backgroundColor: color }} />
+                          </div>
+                          <span className="text-[10px] font-bold w-4 text-end flex-shrink-0" style={{ color }}>{val}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-gray-600 text-[10px] mt-2">
+                      {isRTL
+                        ? `נתונים מ-${total} אנליסטים · מקור: Yahoo Finance`
+                        : `Based on ${total} analysts · Source: Yahoo Finance`}
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
