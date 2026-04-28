@@ -34,6 +34,7 @@ export default function LoginScreen({ onLogin, onRegister, lang }: Props) {
       if (!res.ok) {
         setError(data.error ?? (lang === "he" ? "שגיאה בכניסה" : "Login failed"));
       } else {
+        localStorage.setItem("user_name", username);
         if (rememberMe) {
           localStorage.setItem("auth_token", data.token);
         } else {

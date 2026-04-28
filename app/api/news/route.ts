@@ -1,50 +1,73 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCompanyNews, getMarketNews } from "@/lib/finnhub";
 
-function dateStr(daysAgo: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - daysAgo);
-  return d.toISOString().split("T")[0];
+type NewsItem = {
+  id: string;
+  headline: string;
+  summary: string;
+  source: string;
+  url: string;
+  datetime: number;
+  related?: string;
+  image?: string;
+};
+
+async function fetchYahooNews(query: string): Promise<NewsItem[]> {
+  const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&newsCount=10&enableFuzzyQuery=false&quotesCount=0`;
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.news ?? []).map((n: {
+      uuid: string; title: string; publisher: string; link: string;
+      providerPublishTime: number; relatedTickers?: string[];
+      thumbnail?: { resolutions?: { url: string }[] };
+    }) => ({
+      id: n.uuid,
+      headline: n.title,
+      summary: "",
+      source: n.publisher,
+      url: n.link,
+      datetime: n.providerPublishTime,
+      related: n.relatedTickers?.[0] ?? "",
+      image: n.thumbnail?.resolutions?.[0]?.url ?? "",
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export async function GET(req: NextRequest) {
   const symbols = req.nextUrl.searchParams.get("symbols") ?? "";
   const general = req.nextUrl.searchParams.get("general") === "true";
 
-  const from = dateStr(7);
-  const to = dateStr(0);
-
   try {
-    let items: unknown[] = [];
-
     if (general) {
-      const news = await getMarketNews("general");
-      items = news.slice(0, 30);
-    } else if (symbols) {
-      // TA-125 is an Israeli index — skip for Finnhub news, use Hebrew news instead
-      const list = symbols.split(",").map((s) => s.trim().toUpperCase()).filter((s) => s !== "TA-125");
-      const all = await Promise.all(
-        list.map((sym) => getCompanyNews(sym, from, to).catch(() => []))
-      );
-      const flat = all.flat() as Array<{ datetime: number }>;
-      // deduplicate by id and sort by date
-      const seen = new Set<number>();
-      for (const item of flat) {
-        if (!seen.has((item as { id?: number }).id as number)) {
-          seen.add((item as { id?: number }).id as number);
-          items.push(item);
-        }
-      }
-      items.sort(
-        (a, b) =>
-          (b as { datetime: number }).datetime - (a as { datetime: number }).datetime
-      );
-      items = items.slice(0, 40);
+      const news = await fetchYahooNews("stock market investing");
+      return NextResponse.json(news.slice(0, 30));
     }
 
-    return NextResponse.json(items);
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    if (symbols) {
+      const list = symbols.split(",").map(s => s.trim().toUpperCase()).filter(s => s !== "TA-125");
+      if (!list.length) return NextResponse.json([]);
+
+      const results = await Promise.all(list.map(sym => fetchYahooNews(sym)));
+      const flat = results.flat();
+
+      const seen = new Set<string>();
+      const deduped = flat.filter(item => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
+      deduped.sort((a, b) => b.datetime - a.datetime);
+      return NextResponse.json(deduped.slice(0, 40));
+    }
+
+    return NextResponse.json([]);
+  } catch {
+    return NextResponse.json([]);
   }
 }

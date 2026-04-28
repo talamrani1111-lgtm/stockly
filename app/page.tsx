@@ -12,13 +12,12 @@ import DailyTip from "@/components/DailyTip";
 import TickerTape from "@/components/TickerTape";
 import ChartsTab from "@/components/ChartsTab";
 import DailySummary from "@/components/DailySummary";
-import MarketComparison from "@/components/MarketComparison";
 import GlobalSearch from "@/components/GlobalSearch";
 import CryptoTab from "@/components/CryptoTab";
-import { BarChart2, Newspaper, TrendingUp, Calendar, LineChart, Sun, GitCompare, Bitcoin } from "lucide-react";
+import { BarChart2, Newspaper, TrendingUp, Calendar, LineChart, Sun, Bitcoin } from "lucide-react";
 
-type Tab = "portfolio" | "charts" | "today" | "news" | "screener" | "calendar" | "compare" | "crypto";
-const TAB_ORDER: Tab[] = ["portfolio", "charts", "today", "news", "screener", "calendar", "compare", "crypto"];
+type Tab = "portfolio" | "charts" | "today" | "news" | "screener" | "calendar" | "crypto";
+const TAB_ORDER: Tab[] = ["portfolio", "charts", "today", "news", "screener", "calendar", "crypto"];
 
 export default function Home() {
   const { t, isRTL, lang } = useApp();
@@ -79,7 +78,6 @@ export default function Home() {
     { key: "news",      label: t("news_tab"),      icon: <Newspaper size={18} /> },
     { key: "screener",  label: t("screener_tab"),  icon: <TrendingUp size={18} /> },
     { key: "calendar",  label: t("calendar_tab"),  icon: <Calendar size={18} /> },
-    { key: "compare",   label: t("compare_tab"),   icon: <GitCompare size={18} /> },
     { key: "crypto",    label: t("crypto_tab"),    icon: <Bitcoin size={18} /> },
   ];
 
@@ -124,7 +122,6 @@ export default function Home() {
         {activeTab === "news"      && <NewsFeed />}
         {activeTab === "screener"  && <Screener />}
         {activeTab === "calendar"  && <EventCalendar />}
-        {activeTab === "compare"   && <MarketComparison />}
         {activeTab === "crypto"    && <CryptoTab />}
       </main>
     </div>

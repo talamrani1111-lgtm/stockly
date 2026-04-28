@@ -24,11 +24,27 @@ function getMarketStatus(): string {
   return "closed";
 }
 
+function getGreeting(isRTL: boolean): string {
+  const h = new Date().getHours();
+  if (isRTL) {
+    if (h >= 5 && h < 12) return "בוקר טוב";
+    if (h >= 12 && h < 17) return "צהריים טובים";
+    if (h >= 17 && h < 21) return "ערב טוב";
+    return "לילה טוב";
+  }
+  if (h >= 5 && h < 12) return "Good morning";
+  if (h >= 12 && h < 17) return "Good afternoon";
+  if (h >= 17 && h < 21) return "Good evening";
+  return "Good night";
+}
+
 export default function MarketHeader({ onLogout, onSearch }: { onLogout?: () => void; onSearch?: () => void }) {
   const { t, lang, setLang, isRTL } = useApp();
   const [data, setData] = useState<HeaderData>({ forex: null, vix: null, marketStatus: "closed" });
+  const [userName, setUserName] = useState("");
 
   useEffect(() => {
+    setUserName(localStorage.getItem("user_name") ?? "");
     const status = getMarketStatus();
     Promise.all([
       fetch("/api/forex").then((r) => r.json()).catch(() => ({ rate: null })),
@@ -61,7 +77,10 @@ export default function MarketHeader({ onLogout, onSearch }: { onLogout?: () => 
             <img src="/logo.svg" alt="Stockly" className="w-8 h-8 rounded-xl" />
             <h1 className="text-white font-bold text-xl tracking-tight">{t("appTitle")}</h1>
           </div>
-          <p className="text-gray-500 text-xs mt-0.5">{dateStr}</p>
+          <p className="text-gray-400 text-xs mt-0.5 font-medium">
+            {getGreeting(isRTL)}{userName ? `, ${userName}` : ""} ·{" "}
+            <span className="text-gray-600">{dateStr}</span>
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <NotificationButton />

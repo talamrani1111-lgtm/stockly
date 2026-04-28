@@ -11,14 +11,36 @@ type StockData = {
   changePercent: number;
   high: number;
   low: number;
+  volume?: number;
+  marketCap?: number | null;
 };
 
-const BUILTIN_SECTORS = ["technology", "energy", "construction", "ai", "space"] as const;
+const BUILTIN_SECTORS = [
+  "technology", "ai", "finance", "healthcare", "biotech",
+  "consumer", "ev", "energy", "defense", "space", "construction",
+] as const;
 type BuiltinSector = (typeof BUILTIN_SECTORS)[number];
 
 const SECTOR_EMOJIS: Record<BuiltinSector, string> = {
-  technology: "💻", energy: "⚡", construction: "🏗️", ai: "🤖", space: "🚀",
+  technology: "💻", ai: "🤖", finance: "🏦", healthcare: "🏥", biotech: "🧬",
+  consumer: "🛒", ev: "⚡", energy: "🛢️", defense: "🛡️", space: "🚀", construction: "🏗️",
 };
+
+function formatVolume(v?: number): string {
+  if (!v) return "—";
+  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B`;
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
+  return String(v);
+}
+
+function marketCapLabel(cap?: number | null): { label: string; color: string } | null {
+  if (!cap) return null;
+  if (cap >= 200e9) return { label: "Mega", color: "text-purple-400" };
+  if (cap >= 10e9) return { label: "Large", color: "text-brand-accent" };
+  if (cap >= 2e9) return { label: "Mid", color: "text-brand-yellow" };
+  return { label: "Small", color: "text-gray-400" };
+}
 
 export default function Screener() {
   const { t, isRTL, customSectors, setCustomSectors } = useApp();
@@ -32,22 +54,25 @@ export default function Screener() {
 
   const sectorLabels: Record<BuiltinSector, string> = {
     technology: t("technology"),
-    energy: t("energy"),
-    construction: t("construction"),
     ai: t("ai"),
+    finance: isRTL ? "פיננסים" : "Finance",
+    healthcare: isRTL ? "בריאות" : "Healthcare",
+    biotech: isRTL ? "ביוטק" : "Biotech",
+    consumer: isRTL ? "צריכה" : "Consumer",
+    ev: isRTL ? "EV / רכב" : "EV / Auto",
+    energy: t("energy"),
+    defense: isRTL ? "ביטחון" : "Defense",
     space: t("space"),
+    construction: t("construction"),
   };
 
   const fetchScreener = useCallback(async () => {
     setLoading(true);
     try {
-      const custom = customSectors.find((s) => s.name === activeSector);
-      let url: string;
-      if (custom) {
-        url = `/api/screener?symbols=${custom.symbols.join(",")}`;
-      } else {
-        url = `/api/screener?sector=${activeSector}`;
-      }
+      const custom = customSectors.find(s => s.name === activeSector);
+      const url = custom
+        ? `/api/screener?symbols=${custom.symbols.join(",")}`
+        : `/api/screener?sector=${activeSector}`;
       const res = await fetch(url);
       const data = await res.json();
       setStocks(Array.isArray(data) ? data : []);
@@ -61,21 +86,19 @@ export default function Screener() {
 
   function addCustomSector() {
     const name = newSectorName.trim();
-    const symbols = newSectorSymbols.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+    const symbols = newSectorSymbols.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
     if (!name || symbols.length === 0) return;
     setCustomSectors([...customSectors, { name, symbols }]);
     setActiveSector(name);
-    setNewSectorName("");
-    setNewSectorSymbols("");
-    setShowAddForm(false);
+    setNewSectorName(""); setNewSectorSymbols(""); setShowAddForm(false);
   }
 
   function removeCustomSector(name: string) {
-    setCustomSectors(customSectors.filter((s) => s.name !== name));
+    setCustomSectors(customSectors.filter(s => s.name !== name));
     if (activeSector === name) setActiveSector("technology");
   }
 
-  const filtered = stocks.filter((s) => {
+  const filtered = stocks.filter(s => {
     if (mode === "gainers") return s.changePercent > 0;
     if (mode === "losers") return s.changePercent < 0;
     return true;
@@ -87,7 +110,7 @@ export default function Screener() {
       <div className="mb-4">
         <p className="text-gray-500 text-xs font-medium mb-2.5 uppercase tracking-wide">{t("selectSectors")}</p>
         <div className="flex flex-wrap gap-2">
-          {BUILTIN_SECTORS.map((key) => (
+          {BUILTIN_SECTORS.map(key => (
             <button key={key} onClick={() => setActiveSector(key)}
               className={clsx(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border",
@@ -100,13 +123,10 @@ export default function Screener() {
             </button>
           ))}
 
-          {/* Custom sectors */}
-          {customSectors.map((cs) => (
+          {customSectors.map(cs => (
             <div key={cs.name} className={clsx(
               "flex items-center gap-1 rounded-xl border transition-all",
-              activeSector === cs.name
-                ? "bg-brand-accent/20 border-brand-accent/50"
-                : "bg-white/5 border-white/8"
+              activeSector === cs.name ? "bg-brand-accent/20 border-brand-accent/50" : "bg-white/5 border-white/8"
             )}>
               <button onClick={() => setActiveSector(cs.name)}
                 className={clsx("px-3 py-1.5 text-xs font-semibold",
@@ -120,7 +140,6 @@ export default function Screener() {
             </div>
           ))}
 
-          {/* Add sector button */}
           <button onClick={() => setShowAddForm(!showAddForm)}
             className={clsx(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all",
@@ -133,7 +152,6 @@ export default function Screener() {
           </button>
         </div>
 
-        {/* Add sector form */}
         {showAddForm && (
           <div className="mt-3 bg-brand-card border border-brand-border rounded-2xl p-4">
             <p className="text-white text-sm font-semibold mb-3">
@@ -143,14 +161,12 @@ export default function Screener() {
               <input
                 className="bg-brand-surface border border-brand-border rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-brand-accent/50"
                 placeholder={isRTL ? "שם הסקטור (לדוגמה: ביוטק)" : "Sector name (e.g. Biotech)"}
-                value={newSectorName}
-                onChange={(e) => setNewSectorName(e.target.value)}
+                value={newSectorName} onChange={e => setNewSectorName(e.target.value)}
               />
               <input
                 className="bg-brand-surface border border-brand-border rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-brand-accent/50"
-                placeholder={isRTL ? "סימולים מופרדים בפסיק: MRNA,PFE,GILD" : "Symbols separated by comma: MRNA,PFE,GILD"}
-                value={newSectorSymbols}
-                onChange={(e) => setNewSectorSymbols(e.target.value)}
+                placeholder={isRTL ? "סימולים מופרדים בפסיק: MRNA,PFE,GILD" : "Symbols: MRNA,PFE,GILD"}
+                value={newSectorSymbols} onChange={e => setNewSectorSymbols(e.target.value)}
               />
               <div className="flex gap-2">
                 <button onClick={addCustomSector}
@@ -169,7 +185,7 @@ export default function Screener() {
 
       {/* Mode filter */}
       <div className="flex items-center gap-2 mb-4">
-        {(["all", "gainers", "losers"] as const).map((m) => (
+        {(["all", "gainers", "losers"] as const).map(m => (
           <button key={m} onClick={() => setMode(m)}
             className={clsx(
               "px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border",
@@ -210,6 +226,7 @@ export default function Screener() {
           {filtered.map((stock, i) => {
             const isUp = stock.changePercent >= 0;
             const isHot = Math.abs(stock.changePercent) > 3;
+            const capInfo = marketCapLabel(stock.marketCap);
             return (
               <div key={stock.symbol}
                 className={clsx(
@@ -234,8 +251,14 @@ export default function Screener() {
                           {isRTL ? "מוביל" : "Top"}
                         </span>
                       )}
+                      {capInfo && (
+                        <span className={clsx("text-[10px] font-semibold", capInfo.color)}>{capInfo.label}</span>
+                      )}
                     </div>
-                    <p className="text-gray-500 text-xs">${stock.price?.toFixed(2)}</p>
+                    <p className="text-gray-500 text-xs">
+                      ${stock.price?.toFixed(2)}
+                      {stock.volume ? <span className="text-gray-600"> · Vol {formatVolume(stock.volume)}</span> : null}
+                    </p>
                   </div>
                 </div>
                 <div className="text-end">

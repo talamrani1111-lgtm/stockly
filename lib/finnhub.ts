@@ -46,7 +46,7 @@ export async function getForexRate(from: string, to: string) {
 export async function getEarningsCalendar(from: string, to: string) {
   const res = await fetch(
     `${BASE}/calendar/earnings?from=${from}&to=${to}&token=${apiKey()}`,
-    { next: { revalidate: 3600 } }
+    { cache: "no-store" }
   );
   if (!res.ok) throw new Error("Earnings calendar fetch failed");
   return res.json();
@@ -65,8 +65,14 @@ export async function getSymbolsByExchange(exchange: string = "US") {
 // Sector map used in screener API route
 export const SECTOR_SYMBOLS: Record<string, string[]> = {
   technology: ["AAPL", "MSFT", "GOOGL", "META", "NVDA", "AMD", "INTC", "TSLA", "ORCL", "CRM"],
-  energy: ["XOM", "CVX", "COP", "SLB", "OXY", "MPC", "VLO", "PSX", "HAL", "DVN"],
+  ai:         ["NVDA", "MSFT", "GOOGL", "META", "AMZN", "PLTR", "AI", "SOUN", "BBAI", "RKLB"],
+  energy:     ["XOM", "CVX", "COP", "SLB", "OXY", "MPC", "VLO", "PSX", "HAL", "DVN"],
+  finance:    ["JPM", "GS", "MS", "BAC", "WFC", "BLK", "V", "MA", "AXP", "C"],
+  healthcare: ["JNJ", "PFE", "UNH", "ABBV", "MRK", "TMO", "AMGN", "LLY", "BMY", "GILD"],
+  biotech:    ["MRNA", "BNTX", "NVAX", "BIIB", "REGN", "VRTX", "ILMN", "SRPT", "ARKG", "AMGN"],
+  consumer:   ["AMZN", "WMT", "COST", "TGT", "HD", "LOW", "MCD", "SBUX", "NKE", "LULU"],
+  ev:         ["TSLA", "RIVN", "LCID", "GM", "F", "NIO", "XPEV", "LI", "STLA", "TM"],
+  defense:    ["LMT", "RTX", "NOC", "BA", "GD", "AXON", "LDOS", "CACI", "BAH", "HII"],
+  space:      ["LMT", "RTX", "NOC", "BA", "GD", "RKLB", "SPCE", "ASTR", "ASTS", "HII"],
   construction: ["CAT", "DE", "VMC", "MLM", "NUE", "X", "URI", "PWR", "FLR", "JCI"],
-  ai: ["NVDA", "MSFT", "GOOGL", "META", "AMZN", "PLTR", "AI", "SOUN", "BBAI", "RKLB"],
-  space: ["LMT", "RTX", "NOC", "BA", "GD", "RKLB", "SPCE", "ASTR", "ASTS", "HII"],
 };
