@@ -32,7 +32,22 @@ type PriceTarget = {
   recommendation?: string;
   numberOfAnalysts?: number;
   breakdown?: { strongBuy: number; buy: number; hold: number; sell: number; strongSell: number } | null;
+  actions?: { firm: string; toGrade: string; fromGrade: string; action: string; date: string }[];
 };
+
+const ACTION_MAP: Record<string, { label: string; labelHe: string; color: string }> = {
+  up:   { label: "Upgraded",   labelHe: "שדרוג",     color: "text-brand-green"  },
+  down: { label: "Downgraded", labelHe: "הורדה",     color: "text-brand-red"    },
+  init: { label: "Initiated",  labelHe: "כיסוי חדש", color: "text-brand-accent" },
+  main: { label: "Maintained", labelHe: "אישור",     color: "text-gray-400"     },
+  reit: { label: "Reiterated", labelHe: "אישור",     color: "text-gray-400"     },
+};
+function gradeColor(grade: string): string {
+  const g = (grade ?? "").toLowerCase();
+  if (g.includes("buy") || g.includes("outperform") || g.includes("overweight")) return "text-brand-green";
+  if (g.includes("sell") || g.includes("underperform") || g.includes("underweight")) return "text-brand-red";
+  return "text-brand-yellow";
+}
 
 const TV_SYMBOLS: Record<string, string> = {
   VOO: "AMEX:VOO", QQQ: "NASDAQ:QQQ", SOFI: "NASDAQ:SOFI",
@@ -285,6 +300,37 @@ export default function StockDetailSheet({ symbol, quote, portfolioItem, forex, 
                   </div>
                 );
               })()}
+
+              {/* Firm-level analyst actions */}
+              {target.actions && target.actions.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-white/5">
+                  <p className="text-gray-500 text-[10px] font-semibold uppercase tracking-wide mb-2">
+                    {isRTL ? "פעולות אחרונות — פירמות" : "Recent Analyst Actions"}
+                  </p>
+                  <div className="space-y-1.5">
+                    {target.actions.slice(0, 6).map((a, i) => {
+                      const act = ACTION_MAP[a.action.toLowerCase()] ?? { label: a.action, labelHe: a.action, color: "text-gray-400" };
+                      return (
+                        <div key={i} className="flex items-center gap-2 py-1 border-b border-white/5 last:border-0">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-xs font-semibold truncate">{a.firm}</p>
+                            <p className="text-gray-600 text-[10px]">{a.date}</p>
+                          </div>
+                          <div className="text-end flex-shrink-0">
+                            <p className={clsx("text-xs font-bold", act.color)}>
+                              {isRTL ? act.labelHe : act.label}
+                            </p>
+                            <p className="text-[10px]">
+                              {a.fromGrade && <span className="text-gray-500">{a.fromGrade} → </span>}
+                              <span className={clsx("font-semibold", gradeColor(a.toGrade))}>{a.toGrade}</span>
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
