@@ -72,12 +72,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (s.alerts) setAlertsState(s.alerts);
       if (s.cryptoPortfolio) setCryptoPortfolioState(s.cryptoPortfolio);
     }
-    // Load portfolio from server (syncs across devices)
-    const token = localStorage.getItem("auth_token");
+    // Load portfolio from server — always overrides localStorage for logged-in users
+    const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
     if (token) {
       fetch("/api/portfolio", { headers: { "Authorization": `Bearer ${token}` } })
         .then(r => r.json())
-        .then(data => { if (Array.isArray(data) && data.length > 0) setPortfolioState(data); })
+        .then(data => { setPortfolioState(Array.isArray(data) ? data : []); })
         .catch(() => {});
     }
   }, []);

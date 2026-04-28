@@ -6,6 +6,13 @@ const YAHOO_MAP: Record<string, string> = {
   "TA-35": "%5ETA35.TA",
 };
 
+// Israeli index symbols: Yahoo returns the full index level (e.g. 4257),
+// but ETF units trade at 1/100 of that (~42 NIS). Divide to show real unit price.
+const PRICE_DIVISOR: Record<string, number> = {
+  "TA-125": 100,
+  "TA-35": 100,
+};
+
 async function getYahooQuote(symbol: string) {
   const yahooSym = YAHOO_MAP[symbol] ?? encodeURIComponent(symbol);
   const res = await fetch(
@@ -17,9 +24,12 @@ async function getYahooQuote(symbol: string) {
   const meta = data?.chart?.result?.[0]?.meta;
   if (!meta) throw new Error(`No data for ${symbol}`);
 
-  const price = meta.regularMarketPrice ?? 0;
-  const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? price;
-  const change = meta.regularMarketChange ?? (price - prevClose);
+  const divisor = PRICE_DIVISOR[symbol] ?? 1;
+  const rawPrice = meta.regularMarketPrice ?? 0;
+  const rawPrev = meta.chartPreviousClose ?? meta.previousClose ?? rawPrice;
+  const price = rawPrice / divisor;
+  const prevClose = rawPrev / divisor;
+  const change = meta.regularMarketChange != null ? meta.regularMarketChange / divisor : price - prevClose;
   const changePercent = meta.regularMarketChangePercent ?? (prevClose > 0 ? (change / prevClose) * 100 : 0);
 
   return {
@@ -27,9 +37,9 @@ async function getYahooQuote(symbol: string) {
     price,
     change,
     changePercent,
-    high: meta.regularMarketDayHigh ?? price,
-    low: meta.regularMarketDayLow ?? price,
-    open: meta.regularMarketOpen ?? price,
+    high: (meta.regularMarketDayHigh ?? rawPrice) / divisor,
+    low: (meta.regularMarketDayLow ?? rawPrice) / divisor,
+    open: (meta.regularMarketOpen ?? rawPrice) / divisor,
     prevClose,
   };
 }

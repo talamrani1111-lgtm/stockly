@@ -35,6 +35,13 @@ export default function LoginScreen({ onLogin, onRegister, lang }: Props) {
         setError(data.error ?? (lang === "he" ? "שגיאה בכניסה" : "Login failed"));
       } else {
         localStorage.setItem("user_name", username);
+        // Clear any portfolio/watchlist data from a previous user on this device
+        const existing = JSON.parse(localStorage.getItem("app_state") ?? "{}");
+        delete existing.portfolio;
+        delete existing.watchlist;
+        delete existing.alerts;
+        delete existing.cryptoPortfolio;
+        localStorage.setItem("app_state", JSON.stringify(existing));
         if (rememberMe) {
           localStorage.setItem("auth_token", data.token);
         } else {
