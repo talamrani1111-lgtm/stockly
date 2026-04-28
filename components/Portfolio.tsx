@@ -100,7 +100,7 @@ export default function Portfolio() {
   const symbols = portfolio.map((p) => p.symbol);
 
   const fetchQuotes = useCallback(async () => {
-    if (!symbols.length) return;
+    if (!symbols.length) { setLoading(false); return; }
     try {
       const res = await fetch(`/api/stocks?symbols=${symbols.join(",")}`);
       const data: Quote[] = await res.json();
@@ -368,6 +368,22 @@ export default function Portfolio() {
           totalPnL={totalPnL}
           totalCostUSD={totalCostUSD}
         />
+      )}
+
+      {/* Empty state */}
+      {!loading && portfolio.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-brand-accent/10 flex items-center justify-center mb-4">
+            <TrendingUp size={28} className="text-brand-accent" />
+          </div>
+          <p className="text-white font-semibold text-base mb-1">{isRTL ? "התיק שלך ריק" : "Your portfolio is empty"}</p>
+          <p className="text-gray-500 text-sm mb-4">{isRTL ? "לחץ על עריכה כדי להוסיף מניות" : "Tap Edit to add your first stock"}</p>
+          <button onClick={() => setEditing(true)}
+            className="flex items-center gap-2 bg-brand-accent hover:bg-blue-500 text-white rounded-2xl px-5 py-2.5 text-sm font-semibold transition-all shadow-glow">
+            <Plus size={15} />
+            {isRTL ? "הוסף מניה" : "Add Stock"}
+          </button>
+        </div>
       )}
 
       {/* Stock cards */}
