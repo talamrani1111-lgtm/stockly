@@ -11,15 +11,15 @@ export async function POST(req: NextRequest) {
   if (password.length < 6) {
     return NextResponse.json({ error: "סיסמה חייבת להכיל לפחות 6 תווים" }, { status: 400 });
   }
-  if (findUser(username)) {
+  if (await findUser(username)) {
     return NextResponse.json({ error: "שם המשתמש כבר קיים" }, { status: 409 });
   }
-  if (findUserByEmail(email)) {
+  if (await findUserByEmail(email)) {
     return NextResponse.json({ error: "האימייל כבר רשום" }, { status: 409 });
   }
 
   const user = await createUser(username, password, email, phone);
-  const code = createVerificationCode(user.id, "email");
+  const code = await createVerificationCode(user.id, "email");
 
   try {
     await sendVerificationEmail(email, code);

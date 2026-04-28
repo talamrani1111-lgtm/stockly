@@ -2,8 +2,10 @@ import fs from "fs";
 import path from "path";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import { kvGet, kvSet } from "./kv";
 
-const DB_FILE = process.env.VERCEL ? "/tmp/users.json" : path.join(process.cwd(), ".users.json");
+const LOCAL_FILE = path.join(process.cwd(), ".users.json");
+const REDIS_KEY = "users_db";
 
 export type User = {
   id: string;
@@ -25,34 +27,39 @@ type Verification = {
 
 type DB = { users: User[]; verifications: Verification[] };
 
-function readDB(): DB {
-  try {
-    return JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
-  } catch {
-    return { users: [], verifications: [] };
-  }
+async function readDB(): Promise<DB> {
+  const remote = await kvGet<DB>(REDIS_KEY);
+  if (remote) return remote;
+  try { return JSON.parse(fs.readFileSync(LOCAL_FILE, "utf8")); } catch {}
+  return { users: [], verifications: [] };
 }
 
-function writeDB(db: DB) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+async function writeDB(db: DB): Promise<void> {
+  await kvSet(REDIS_KEY, db);
+  try { fs.writeFileSync(LOCAL_FILE, JSON.stringify(db, null, 2)); } catch {}
 }
 
-export function getUsers(): User[] { return readDB().users; }
-
-export function findUser(username: string): User | undefined {
-  return readDB().users.find(u => u.username.toLowerCase() === username.toLowerCase());
+export async function getUsers(): Promise<User[]> {
+  return (await readDB()).users;
 }
 
-export function findUserById(id: string): User | undefined {
-  return readDB().users.find(u => u.id === id);
+export async function findUser(username: string): Promise<User | undefined> {
+  const db = await readDB();
+  return db.users.find(u => u.username.toLowerCase() === username.toLowerCase());
 }
 
-export function findUserByEmail(email: string): User | undefined {
-  return readDB().users.find(u => u.email.toLowerCase() === email.toLowerCase());
+export async function findUserById(id: string): Promise<User | undefined> {
+  const db = await readDB();
+  return db.users.find(u => u.id === id);
+}
+
+export async function findUserByEmail(email: string): Promise<User | undefined> {
+  const db = await readDB();
+  return db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
 }
 
 export async function createUser(username: string, password: string, email: string, phone?: string): Promise<User> {
-  const db = readDB();
+  const db = await readDB();
   const passwordHash = await bcrypt.hash(password, 10);
   const isFirst = db.users.length === 0;
   const user: User = {
@@ -64,30 +71,36 @@ export async function createUser(username: string, password: string, email: stri
     createdAt: Date.now(),
   };
   db.users.push(user);
-  writeDB(db);
+  await writeDB(db);
   return user;
+}
+
+export async function deleteUser(userId: string): Promise<void> {
+  const db = await readDB();
+  db.users = db.users.filter(u => u.id !== userId);
+  await writeDB(db);
 }
 
 export async function verifyPassword(user: User, password: string): Promise<boolean> {
   return bcrypt.compare(password, user.passwordHash);
 }
 
-export function createVerificationCode(userId: string, type: "email" | "phone"): string {
-  const db = readDB();
+export async function createVerificationCode(userId: string, type: "email" | "phone"): Promise<string> {
+  const db = await readDB();
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   db.verifications = db.verifications.filter(v => !(v.userId === userId && v.type === type));
   db.verifications.push({ userId, type, code, expiresAt: Date.now() + 15 * 60 * 1000 });
-  writeDB(db);
+  await writeDB(db);
   return code;
 }
 
-export function verifyCode(userId: string, type: "email" | "phone", code: string): boolean {
-  const db = readDB();
+export async function verifyCode(userId: string, type: "email" | "phone", code: string): Promise<boolean> {
+  const db = await readDB();
   const v = db.verifications.find(v => v.userId === userId && v.type === type && v.code === code);
   if (!v || v.expiresAt < Date.now()) return false;
   db.verifications = db.verifications.filter(v => !(v.userId === userId && v.type === type));
   db.users = db.users.map(u => u.id === userId ? { ...u, emailVerified: type === "email" ? true : u.emailVerified } : u);
-  writeDB(db);
+  await writeDB(db);
   return true;
 }
 
@@ -96,8 +109,8 @@ export function makeToken(userId: string): string {
   return crypto.createHmac("sha256", secret).update(userId).digest("hex");
 }
 
-export function verifyToken(token: string): User | null {
-  const db = readDB();
+export async function verifyToken(token: string): Promise<User | null> {
+  const db = await readDB();
   const secret = process.env.APP_SECRET ?? "stock-tracker-secret-2026";
   for (const user of db.users) {
     const expected = crypto.createHmac("sha256", secret).update(user.id).digest("hex");

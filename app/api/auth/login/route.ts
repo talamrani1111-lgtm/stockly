@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   const { username, password } = await req.json();
 
   // Try new multi-user system first
-  const user = findUser(username);
+  const user = await findUser(username);
   if (user) {
     const ok = await verifyPassword(user, password);
     if (!ok) return NextResponse.json({ error: "שם משתמש או סיסמה שגויים" }, { status: 401 });
