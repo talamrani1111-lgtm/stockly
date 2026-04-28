@@ -49,19 +49,12 @@ type AppContextType = {
 
 const AppContext = createContext<AppContextType | null>(null);
 
-const DEFAULT_PORTFOLIO: PortfolioItem[] = [
-  { symbol: "QQQ",    shares: 5,   avgPrice: 600,   currency: "USD" },
-  { symbol: "VOO",    shares: 7,   avgPrice: 629,   currency: "USD" },
-  { symbol: "SOFI",   shares: 18,  avgPrice: 18.73, currency: "USD" },
-  { symbol: "TA-125", shares: 396, avgPrice: 3.9,   currency: "ILS", manualPrice: 15.15 },
-];
-
 const DEFAULT_SECTORS = ["technology", "ai", "space"];
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>("he");
-  const [portfolio, setPortfolioState] = useState<PortfolioItem[]>(DEFAULT_PORTFOLIO);
-  const [watchlist, setWatchlistState] = useState<string[]>(["NVDA", "RKLB", "PLTR"]);
+  const [portfolio, setPortfolioState] = useState<PortfolioItem[]>([]);
+  const [watchlist, setWatchlistState] = useState<string[]>([]);
   const [selectedSectors, setSelectedSectorsState] = useState<string[]>(DEFAULT_SECTORS);
   const [customSectors, setCustomSectorsState] = useState<CustomSector[]>([]);
   const [alerts, setAlertsState] = useState<PriceAlert[]>([]);
