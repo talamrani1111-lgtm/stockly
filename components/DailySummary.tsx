@@ -4,6 +4,51 @@ import { useApp } from "@/lib/context";
 import { TrendingUp, TrendingDown, Newspaper, RefreshCw } from "lucide-react";
 import clsx from "clsx";
 
+function FearGreedWidget({ isRTL }: { isRTL: boolean }) {
+  const [vix, setVix] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/stocks?symbols=VIX").then(r => r.json())
+      .then((d: { price: number }[]) => { if (d[0]?.price) setVix(d[0].price); })
+      .catch(() => {});
+  }, []);
+
+  if (!vix) return null;
+
+  const score = vix >= 40 ? 8 : vix >= 30 ? 22 : vix >= 25 ? 38 : vix >= 20 ? 52 : vix >= 15 ? 68 : vix >= 12 ? 82 : 92;
+  const { label, color, bg } = score >= 75 ? { label: isRTL ? "חמדנות קיצונית" : "Extreme Greed", color: "text-brand-green", bg: "bg-brand-green/10" }
+    : score >= 55 ? { label: isRTL ? "חמדנות" : "Greed", color: "text-green-400", bg: "bg-green-400/10" }
+    : score >= 45 ? { label: isRTL ? "נייטרל" : "Neutral", color: "text-gray-300", bg: "bg-white/5" }
+    : score >= 25 ? { label: isRTL ? "פחד" : "Fear", color: "text-brand-yellow", bg: "bg-brand-yellow/10" }
+    : { label: isRTL ? "פחד קיצוני" : "Extreme Fear", color: "text-brand-red", bg: "bg-brand-red/10" };
+
+  const pct = score;
+  const gradientColor = score >= 55 ? "#22c55e" : score >= 45 ? "#9ca3af" : score >= 25 ? "#f59e0b" : "#ef4444";
+
+  return (
+    <div className={clsx("rounded-2xl p-4 border border-white/8 mb-4", bg)}>
+      <p className="text-gray-500 text-[10px] font-semibold uppercase tracking-wide mb-3">
+        {isRTL ? "מד פחד וחמדנות" : "Fear & Greed Index"}
+      </p>
+      <div className="flex items-center gap-4">
+        {/* Arc gauge */}
+        <div className="relative flex-shrink-0" style={{ width: 72, height: 40 }}>
+          <svg width="72" height="40" viewBox="0 0 72 40">
+            <path d="M 6 36 A 30 30 0 0 1 66 36" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" strokeLinecap="round" />
+            <path d="M 6 36 A 30 30 0 0 1 66 36" fill="none" stroke={gradientColor} strokeWidth="8" strokeLinecap="round"
+              strokeDasharray={`${(pct / 100) * 94.25} 94.25`} />
+          </svg>
+          <p className={clsx("absolute bottom-0 left-0 right-0 text-center text-base font-bold", color)}>{score}</p>
+        </div>
+        <div>
+          <p className={clsx("text-base font-bold", color)}>{label}</p>
+          <p className="text-gray-500 text-xs mt-0.5">VIX {vix.toFixed(1)} · {isRTL ? "מבוסס תנודתיות" : "Volatility-based"}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type Quote = { symbol: string; price: number; change: number; changePercent: number; high: number; low: number };
 type NewsItem = { headline: string; url: string; source: string; datetime: number };
 type SymbolDay = {
@@ -78,6 +123,7 @@ export default function DailySummary() {
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"}>
+      <FearGreedWidget isRTL={isRTL} />
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-white font-bold text-base">
           {isRTL ? "מה קרה היום" : "What Happened Today"}

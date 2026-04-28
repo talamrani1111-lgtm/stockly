@@ -14,10 +14,11 @@ import ChartsTab from "@/components/ChartsTab";
 import DailySummary from "@/components/DailySummary";
 import GlobalSearch from "@/components/GlobalSearch";
 import CryptoTab from "@/components/CryptoTab";
-import { BarChart2, Newspaper, TrendingUp, Calendar, LineChart, Sun, Bitcoin } from "lucide-react";
+import WatchlistTab from "@/components/WatchlistTab";
+import { BarChart2, Newspaper, TrendingUp, Calendar, LineChart, Sun, Bitcoin, Bookmark } from "lucide-react";
 
-type Tab = "portfolio" | "charts" | "today" | "news" | "screener" | "calendar" | "crypto";
-const TAB_ORDER: Tab[] = ["portfolio", "charts", "today", "news", "screener", "calendar", "crypto"];
+type Tab = "portfolio" | "watchlist" | "charts" | "today" | "news" | "screener" | "calendar" | "crypto";
+const TAB_ORDER: Tab[] = ["portfolio", "watchlist", "charts", "today", "news", "screener", "calendar", "crypto"];
 
 export default function Home() {
   const { t, isRTL, lang } = useApp();
@@ -72,8 +73,9 @@ export default function Home() {
   }
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: "portfolio", label: t("portfolio_tab"), icon: <BarChart2 size={18} /> },
-    { key: "charts",    label: t("charts_tab"),    icon: <LineChart size={18} /> },
+    { key: "portfolio",  label: t("portfolio_tab"),  icon: <BarChart2 size={18} /> },
+    { key: "watchlist",  label: t("watchlist_tab"),  icon: <Bookmark size={18} /> },
+    { key: "charts",     label: t("charts_tab"),     icon: <LineChart size={18} /> },
     { key: "today",     label: t("today_tab"),     icon: <Sun size={18} /> },
     { key: "news",      label: t("news_tab"),      icon: <Newspaper size={18} /> },
     { key: "screener",  label: t("screener_tab"),  icon: <TrendingUp size={18} /> },
@@ -116,8 +118,9 @@ export default function Home() {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {activeTab === "portfolio" && <><DailyTip /><Portfolio /></>}
-        {activeTab === "charts"    && <ChartsTab />}
+        {activeTab === "portfolio"  && <><DailyTip /><Portfolio /></>}
+        {activeTab === "watchlist"  && <WatchlistTab />}
+        {activeTab === "charts"     && <ChartsTab />}
         {activeTab === "today"     && <DailySummary />}
         {activeTab === "news"      && <NewsFeed />}
         {activeTab === "screener"  && <Screener />}

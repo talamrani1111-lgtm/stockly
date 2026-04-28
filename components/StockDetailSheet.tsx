@@ -115,12 +115,20 @@ export default function StockDetailSheet({ symbol, quote, portfolioItem, forex, 
   const [showAlertForm, setShowAlertForm] = useState(false);
   const [alertSaved, setAlertSaved] = useState(false);
   const [stopLossPct, setStopLossPct] = useState("5");
+  const [note, setNote] = useState("");
   const startY = useRef(0);
 
   useEffect(() => {
     fetch(`/api/stock-info?symbol=${symbol}`).then(r => r.json()).then(setInfo).catch(() => {});
     fetch(`/api/price-target?symbol=${symbol}`).then(r => r.json()).then(d => { if (d.targetMean) setTarget(d); }).catch(() => {});
+    setNote(localStorage.getItem(`stock_note_${symbol}`) ?? "");
   }, [symbol]);
+
+  function saveNote(val: string) {
+    setNote(val);
+    if (val.trim()) localStorage.setItem(`stock_note_${symbol}`, val);
+    else localStorage.removeItem(`stock_note_${symbol}`);
+  }
 
   // swipe down to close
   function onTouchStart(e: React.TouchEvent) { startY.current = e.touches[0].clientY; }
@@ -284,6 +292,30 @@ export default function StockDetailSheet({ symbol, quote, portfolioItem, forex, 
           {info && (
             <div className="bg-brand-card border border-brand-border rounded-2xl p-4">
               <p className="text-gray-400 text-xs font-medium mb-3">{isRTL ? "נתונים מרכזיים" : "Key Stats"}</p>
+
+              {/* 52-week position bar */}
+              {info.fiftyTwoWeekLow && info.fiftyTwoWeekHigh && price > 0 && (() => {
+                const lo = info.fiftyTwoWeekLow!;
+                const hi = info.fiftyTwoWeekHigh!;
+                const pct = Math.min(100, Math.max(0, ((price - lo) / (hi - lo)) * 100));
+                const barColor = pct > 75 ? "#22c55e" : pct > 40 ? "#f59e0b" : "#ef4444";
+                return (
+                  <div className="mb-4">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-gray-500 text-[10px]">{isRTL ? "שפל שנתי" : "52W Low"} ${fmt(lo, 0)}</span>
+                      <span className="text-gray-400 text-[10px] font-semibold">{pct.toFixed(0)}%{isRTL ? " מהשפל" : " from low"}</span>
+                      <span className="text-gray-500 text-[10px]">{isRTL ? "שיא שנתי" : "52W High"} ${fmt(hi, 0)}</span>
+                    </div>
+                    <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
+                      <div className="absolute inset-y-0 left-0 rounded-full transition-all"
+                        style={{ width: `${pct}%`, backgroundColor: barColor }} />
+                      <div className="absolute inset-y-0 w-1 bg-white rounded-full -translate-x-0.5"
+                        style={{ left: `${Math.min(99, pct)}%` }} />
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                 {[
                   { label: isRTL ? "שווי שוק" : "Market Cap", val: fmtBig(info.marketCap) },
@@ -292,8 +324,6 @@ export default function StockDetailSheet({ symbol, quote, portfolioItem, forex, 
                   { label: "EPS", val: info.eps != null ? `$${fmt(info.eps)}` : "—" },
                   { label: "Beta", val: fmt(info.beta, 2) },
                   { label: isRTL ? "נפח ממוצע" : "Avg Volume", val: fmtVol(info.avgVolume) },
-                  { label: isRTL ? "שיא 52 שבועות" : "52W High", val: info.fiftyTwoWeekHigh ? `$${fmt(info.fiftyTwoWeekHigh)}` : "—" },
-                  { label: isRTL ? "שפל 52 שבועות" : "52W Low", val: info.fiftyTwoWeekLow ? `$${fmt(info.fiftyTwoWeekLow)}` : "—" },
                 ].map(({ label, val }) => (
                   <div key={label}>
                     <p className="text-gray-500 text-[10px] mb-0.5">{label}</p>
@@ -423,6 +453,20 @@ export default function StockDetailSheet({ symbol, quote, portfolioItem, forex, 
                 </p>
               </div>
             )}
+          </div>
+
+          {/* Personal note */}
+          <div className="bg-brand-card border border-brand-border rounded-2xl p-4">
+            <p className="text-gray-400 text-xs font-medium mb-2">
+              ✏️ {isRTL ? "הערה אישית" : "My Note"}
+            </p>
+            <textarea
+              className="w-full bg-brand-surface border border-brand-border rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-brand-accent/50 resize-none transition-colors"
+              rows={3}
+              placeholder={isRTL ? "למה קניתי? מה היעד שלי? תזכורות..." : "Why I bought this, target, reminders..."}
+              value={note}
+              onChange={e => saveNote(e.target.value)}
+            />
           </div>
         </div>
       </div>

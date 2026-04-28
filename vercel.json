@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/push/morning-summary",
+      "schedule": "30 14 * * 1-5"
+    }
+  ]
+}
