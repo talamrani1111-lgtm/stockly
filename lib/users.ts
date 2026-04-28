@@ -75,6 +75,12 @@ export async function createUser(username: string, password: string, email: stri
   return user;
 }
 
+export async function markEmailVerified(userId: string): Promise<void> {
+  const db = await readDB();
+  db.users = db.users.map(u => u.id === userId ? { ...u, emailVerified: true } : u);
+  await writeDB(db);
+}
+
 export async function deleteUser(userId: string): Promise<void> {
   const db = await readDB();
   db.users = db.users.filter(u => u.id !== userId);

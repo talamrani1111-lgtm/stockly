@@ -25,7 +25,8 @@ export async function GET(req: NextRequest) {
   const user = await verifyToken(token);
   if (!user) return NextResponse.json(null);
   const data = await load(user.id);
-  return NextResponse.json(data);
+  // Return [] (not null) so client can distinguish "authenticated+empty" from "unauthenticated"
+  return NextResponse.json(data ?? []);
 }
 
 export async function POST(req: NextRequest) {

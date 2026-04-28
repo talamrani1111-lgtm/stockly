@@ -72,12 +72,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (s.alerts) setAlertsState(s.alerts);
       if (s.cryptoPortfolio) setCryptoPortfolioState(s.cryptoPortfolio);
     }
-    // Load portfolio from server — always overrides localStorage for logged-in users
+    // Load portfolio from server.
+    // Server returns [] for authenticated users with no data, or null for unauthenticated.
+    // Only update state when server returns an array (even empty) — never wipe on null.
     const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
     if (token) {
       fetch("/api/portfolio", { headers: { "Authorization": `Bearer ${token}` } })
         .then(r => r.json())
-        .then(data => { setPortfolioState(Array.isArray(data) ? data : []); })
+        .then(data => { if (Array.isArray(data)) setPortfolioState(data); })
         .catch(() => {});
     }
   }, []);

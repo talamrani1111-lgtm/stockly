@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createUser, findUser, findUserByEmail, createVerificationCode } from "@/lib/users";
+import { createUser, findUser, findUserByEmail, createVerificationCode, markEmailVerified, makeToken } from "@/lib/users";
 import { sendVerificationEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
@@ -19,12 +19,21 @@ export async function POST(req: NextRequest) {
   }
 
   const user = await createUser(username, password, email, phone);
-  const code = await createVerificationCode(user.id, "email");
 
+  // Try to send verification email
+  let emailSent = false;
   try {
+    const code = await createVerificationCode(user.id, "email");
     await sendVerificationEmail(email, code);
+    emailSent = true;
   } catch {
-    // SMTP not configured — still allow registration, just can't verify
+    // SMTP not configured — auto-verify so user can login immediately
+  }
+
+  if (!emailSent) {
+    await markEmailVerified(user.id);
+    const token = makeToken(user.id);
+    return NextResponse.json({ userId: user.id, emailSent: false, token });
   }
 
   return NextResponse.json({ userId: user.id, emailSent: true });

@@ -30,6 +30,13 @@ export default function RegisterScreen({ lang, onBack, onRegistered }: Props) {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error); setLoading(false); return; }
+      // If token returned directly (no SMTP), login immediately
+      if (data.token) {
+        localStorage.setItem("auth_token", data.token);
+        localStorage.setItem("user_name", username);
+        onRegistered();
+        return;
+      }
       setUserId(data.userId);
       setEmailSent(data.emailSent);
       setStep("verify");
