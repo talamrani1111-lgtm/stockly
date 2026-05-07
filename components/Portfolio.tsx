@@ -14,6 +14,9 @@ import BadgesPanel from "./BadgesPanel";
 import AchievementToast from "./AchievementToast";
 import Confetti from "./Confetti";
 import PortfolioGoal from "./PortfolioGoal";
+import PortfolioHeatMap from "./PortfolioHeatMap";
+import RebalancingSuggestions from "./RebalancingSuggestions";
+import MarketCountdown from "./MarketCountdown";
 import { checkAndAward, updateStreak, addXP, getStreak, type Badge } from "@/lib/gamification";
 
 type Quote = { symbol: string; price: number; change: number; changePercent: number };
@@ -428,6 +431,19 @@ export default function Portfolio() {
       {/* Allocation donut */}
       {!loading && portfolio.length > 1 && (
         <PortfolioDonut quotes={quotes} forex={forex} />
+      )}
+
+      {/* Market countdown */}
+      {!loading && <MarketCountdown />}
+
+      {/* Heat map */}
+      {!loading && portfolio.length > 1 && Object.keys(quotes).length > 0 && (
+        <PortfolioHeatMap quotes={quotes} forex={forex} />
+      )}
+
+      {/* Rebalancing */}
+      {!loading && portfolio.length > 1 && Object.keys(quotes).length > 0 && (
+        <RebalancingSuggestions quotes={quotes} forex={forex} />
       )}
 
       {/* Portfolio analytics */}

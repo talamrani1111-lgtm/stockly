@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useApp } from "@/lib/context";
+import StockCompare from "./StockCompare";
 import { Search, X, ChevronDown, ChevronUp, TrendingUp, Users, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import clsx from "clsx";
 
@@ -402,6 +403,9 @@ export default function ChartsTab() {
           </div>
         </div>
       )}
+
+      {/* Stock comparison tool */}
+      <StockCompare />
     </div>
   );
 }
