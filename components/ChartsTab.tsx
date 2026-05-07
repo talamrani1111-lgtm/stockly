@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useApp } from "@/lib/context";
 import StockCompare from "./StockCompare";
-import { Search, X, ChevronDown, ChevronUp, TrendingUp, Users, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
+import { Search, X, ChevronDown, ChevronUp, TrendingUp, Users, ArrowUpRight, ArrowDownRight, Minus, Shield, Activity } from "lucide-react";
 import clsx from "clsx";
 
 type SearchResult = { symbol: string; name: string };
@@ -289,6 +289,113 @@ function TvChart({ symbol, timeframe, lang }: { symbol: string; timeframe: Timef
   );
 }
 
+type TechLevel = {
+  price: number; label: string; labelHe: string;
+  type: "resistance" | "support" | "current";
+};
+
+function TechnicalLevels({ symbol, isRTL, lang }: { symbol: string; isRTL: boolean; lang: string }) {
+  const [levels, setLevels] = useState<TechLevel[]>([]);
+  const [price, setPrice]   = useState<number | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`/api/stocks?symbols=${symbol}`).then(r => r.json()),
+      fetch(`/api/stock-info?symbol=${symbol}`).then(r => r.json()),
+    ]).then(([quotes, info]) => {
+      const q = Array.isArray(quotes) ? quotes[0] : null;
+      if (!q) return;
+      setPrice(q.price);
+      const lvls: TechLevel[] = [];
+      if (info.fiftyTwoWeekHigh)
+        lvls.push({ price: info.fiftyTwoWeekHigh, label: "52W High", labelHe: "שיא 52 שב׳", type: "resistance" });
+      if (info.fiftyTwoWeekLow)
+        lvls.push({ price: info.fiftyTwoWeekLow,  label: "52W Low",  labelHe: "שפל 52 שב׳", type: "support"    });
+      lvls.sort((a, b) => b.price - a.price);
+      setLevels(lvls);
+    }).catch(() => {});
+  }, [symbol]);
+
+  if (!levels.length || !price) return null;
+
+  const high = levels[0].price;
+  const low  = levels[levels.length - 1].price;
+  const range = high - low || 1;
+  const pricePct = ((price - low) / range) * 100;
+
+  const distToHigh = ((high - price) / price * 100);
+  const distToLow  = ((price - low)  / price * 100);
+
+  return (
+    <div className="bg-brand-card border border-brand-border rounded-2xl p-4 mb-2">
+      <div className="flex items-center gap-2 mb-3">
+        <Shield size={13} className="text-brand-accent" />
+        <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide">
+          {lang === "he" ? "רמות מפתח" : "Key Levels"}
+        </p>
+      </div>
+
+      {/* Visual range bar */}
+      <div className="mb-4">
+        <div className="relative h-2 rounded-full bg-white/8 mb-2">
+          {/* Colored zone */}
+          <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-brand-red/30 via-brand-yellow/30 to-brand-green/30 w-full" />
+          {/* Current price dot */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-white border-2 border-brand-accent shadow-glow z-10 -translate-x-1/2"
+            style={{ left: `${Math.max(2, Math.min(98, pricePct))}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-[9px] text-gray-600">
+          <span>${low.toFixed(0)}</span>
+          <span className="text-white font-bold text-[10px]">${price.toFixed(2)}</span>
+          <span>${high.toFixed(0)}</span>
+        </div>
+      </div>
+
+      {/* Level rows */}
+      <div className="space-y-1.5">
+        {levels.map((l, i) => {
+          const dist = ((l.price - price) / price) * 100;
+          const isAbove = l.price > price;
+          return (
+            <div key={i} className={clsx(
+              "flex items-center justify-between px-3 py-2 rounded-xl",
+              l.type === "resistance" ? "bg-brand-red/8 border border-brand-red/15" : "bg-brand-green/8 border border-brand-green/15"
+            )}>
+              <div className="flex items-center gap-2">
+                <div className={clsx("w-2 h-2 rounded-full", l.type === "resistance" ? "bg-brand-red" : "bg-brand-green")} />
+                <div>
+                  <p className="text-white text-xs font-bold">{lang === "he" ? l.labelHe : l.label}</p>
+                  <p className="text-gray-600 text-[9px]">{l.type === "resistance" ? (lang === "he" ? "התנגדות" : "Resistance") : (lang === "he" ? "תמיכה" : "Support")}</p>
+                </div>
+              </div>
+              <div className="text-end">
+                <p className="text-white text-sm font-bold">${l.price.toFixed(2)}</p>
+                <p className={clsx("text-[10px] font-semibold", isAbove ? "text-brand-red" : "text-brand-green")}>
+                  {isAbove ? "▲" : "▼"} {Math.abs(dist).toFixed(1)}%
+                </p>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Distance summary */}
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <div className="bg-brand-green/8 border border-brand-green/15 rounded-xl p-2.5 text-center">
+            <p className="text-gray-600 text-[9px]">{lang === "he" ? "מרחק מהשפל" : "From 52W Low"}</p>
+            <p className="text-brand-green text-sm font-bold">+{distToLow.toFixed(1)}%</p>
+          </div>
+          <div className="bg-brand-red/8 border border-brand-red/15 rounded-xl p-2.5 text-center">
+            <p className="text-gray-600 text-[9px]">{lang === "he" ? "מרחק מהשיא" : "From 52W High"}</p>
+            <p className="text-brand-red text-sm font-bold">-{distToHigh.toFixed(1)}%</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ChartsTab() {
   const { lang, isRTL, portfolio, watchlist } = useApp();
   const [selected, setSelected] = useState<string | null>(null);
@@ -378,6 +485,9 @@ export default function ChartsTab() {
 
           {/* Chart — full height */}
           <TvChart key={`${selected}-${timeframe.label}`} symbol={selected} timeframe={timeframe} lang={lang} />
+
+          {/* Technical key levels */}
+          <TechnicalLevels symbol={selected} isRTL={isRTL} lang={lang} />
 
           {/* Analyst panel below */}
           {target && <AnalystPanel target={target} isRTL={isRTL} />}

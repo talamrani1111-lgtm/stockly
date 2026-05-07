@@ -19,6 +19,10 @@ import PortfolioHeatMap from "./PortfolioHeatMap";
 import RebalancingSuggestions from "./RebalancingSuggestions";
 import MarketCountdown from "./MarketCountdown";
 import { checkAndAward, updateStreak, addXP, getStreak, type Badge } from "@/lib/gamification";
+import EarningsCountdown from "./EarningsCountdown";
+import DividendTracker from "./DividendTracker";
+import SectorPerformance from "./SectorPerformance";
+import DCACalculator from "./DCACalculator";
 
 type Quote = { symbol: string; price: number; change: number; changePercent: number };
 type PriceTarget = { targetMean: number; targetHigh: number; targetLow: number; recommendation: string | null; numberOfAnalysts: number | null };
@@ -507,6 +511,22 @@ export default function Portfolio() {
 
       {/* Badges & XP */}
       {!loading && <BadgesPanel />}
+
+      {/* Sector performance */}
+      {!loading && <SectorPerformance />}
+
+      {/* Earnings countdown */}
+      {!loading && portfolio.length > 0 && (
+        <EarningsCountdown symbols={portfolio.filter(p => !p.manualPrice && p.currency === "USD").map(p => p.symbol)} />
+      )}
+
+      {/* Dividend tracker */}
+      {!loading && portfolio.length > 0 && (
+        <DividendTracker portfolio={portfolio} />
+      )}
+
+      {/* DCA Calculator */}
+      {!loading && <DCACalculator />}
 
       {/* Portfolio vs Market comparison */}
       {!loading && portfolio.length > 0 && (
