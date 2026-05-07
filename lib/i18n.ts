@@ -77,6 +77,8 @@ export const translations = {
     watchlist_tab: "מעקב",
     dailyChange: "שינוי היום",
     sinceStart: "מאז קנייה",
+    chat_tab: "בוט",
+    learn_tab: "למד",
   },
   en: {
     appTitle: "Stockly",
@@ -154,6 +156,8 @@ export const translations = {
     watchlist_tab: "Watchlist",
     dailyChange: "Today",
     sinceStart: "Since Buy",
+    chat_tab: "AI Bot",
+    learn_tab: "Learn",
   },
 };
 

@@ -8,6 +8,7 @@ import PortfolioSparkline, { savePortfolioValue } from "./PortfolioSparkline";
 import ShareExport from "./ShareExport";
 import PortfolioDonut from "./PortfolioDonut";
 import PortfolioStats from "./PortfolioStats";
+import MarketComparison from "./MarketComparison";
 
 type Quote = { symbol: string; price: number; change: number; changePercent: number };
 type PriceTarget = { targetMean: number; targetHigh: number; targetLow: number; recommendation: string | null; numberOfAnalysts: number | null };
@@ -87,9 +88,11 @@ export default function Portfolio() {
   const [editShares, setEditShares] = useState("");
   const [editAvg, setEditAvg] = useState("");
   const [editManual, setEditManual] = useState("");
+  const [editTotal, setEditTotal] = useState("");
   const [newSymbol, setNewSymbol] = useState("");
   const [newShares, setNewShares] = useState("");
   const [newAvg, setNewAvg] = useState("");
+  const [newTotalInvested, setNewTotalInvested] = useState("");
   const [newCurrency, setNewCurrency] = useState<"USD" | "ILS">("USD");
   const [newManualPrice, setNewManualPrice] = useState("");
   const [forex, setForex] = useState<number>(3.65);
@@ -97,7 +100,7 @@ export default function Portfolio() {
   const [targets, setTargets] = useState<Record<string, PriceTarget>>({});
   const [showShare, setShowShare] = useState(false);
 
-  const symbols = portfolio.map((p) => p.symbol);
+  const symbols = portfolio.filter((p) => !p.manualPrice).map((p) => p.symbol);
 
   const fetchQuotes = useCallback(async () => {
     if (!symbols.length) { setLoading(false); return; }
@@ -226,15 +229,20 @@ export default function Portfolio() {
   function addPosition() {
     if (!newSymbol || !newShares) return;
     const sym = newSymbol.toUpperCase().trim();
+    const shares = parseFloat(newShares);
+    const total = parseFloat(newTotalInvested);
+    const avgPrice = total > 0 && shares > 0
+      ? total / shares
+      : parseFloat(newAvg) || 0;
     const manualPrice = parseFloat(newManualPrice) || undefined;
     const existing = portfolio.find((p) => p.symbol === sym);
     if (existing) {
-      setPortfolio(portfolio.map((p) => p.symbol === sym ? { ...p, shares: p.shares + parseFloat(newShares) } : p));
+      setPortfolio(portfolio.map((p) => p.symbol === sym ? { ...p, shares: p.shares + shares } : p));
     } else {
-      setPortfolio([...portfolio, { symbol: sym, shares: parseFloat(newShares), avgPrice: parseFloat(newAvg) || 0, currency: newCurrency, manualPrice }]);
+      setPortfolio([...portfolio, { symbol: sym, shares, avgPrice, currency: newCurrency, manualPrice }]);
     }
     haptic([20, 10, 20]);
-    setNewSymbol(""); setNewShares(""); setNewAvg(""); setNewCurrency("USD"); setNewManualPrice("");
+    setNewSymbol(""); setNewShares(""); setNewAvg(""); setNewTotalInvested(""); setNewCurrency("USD"); setNewManualPrice("");
   }
 
   function startEdit(item: PortfolioItem) {
@@ -245,13 +253,19 @@ export default function Portfolio() {
   }
 
   function saveEdit(symbol: string) {
+    const shares = parseFloat(editShares) || portfolio.find(p => p.symbol === symbol)?.shares || 0;
+    const total = parseFloat(editTotal);
+    const avgPrice = total > 0 && shares > 0
+      ? total / shares
+      : parseFloat(editAvg) || portfolio.find(p => p.symbol === symbol)?.avgPrice || 0;
     setPortfolio(portfolio.map((p) => p.symbol === symbol ? {
       ...p,
-      shares: parseFloat(editShares) || p.shares,
-      avgPrice: parseFloat(editAvg) || p.avgPrice,
+      shares,
+      avgPrice,
       manualPrice: parseFloat(editManual) || undefined,
     } : p));
     haptic(20);
+    setEditTotal("");
     setEditingItem(null);
   }
 
@@ -314,7 +328,7 @@ export default function Portfolio() {
             <span className="text-xs opacity-75">({totalPnLPct >= 0 ? "+" : ""}{totalPnLPct.toFixed(1)}%)</span>
           </div>
         )}
-        {!loading && <PortfolioSparkline currentValue={totalValueUSD} />}
+        {!loading && <PortfolioSparkline currentValue={totalValueUSD} isHe={isRTL} />}
 
         {/* Daily change + since-start stats */}
         {!loading && Object.keys(quotes).length > 0 && (
@@ -370,6 +384,13 @@ export default function Portfolio() {
         />
       )}
 
+      {/* Portfolio vs Market comparison */}
+      {!loading && portfolio.length > 0 && (
+        <div className="mb-4">
+          <MarketComparison />
+        </div>
+      )}
+
       {/* Empty state */}
       {!loading && portfolio.length === 0 && (
         <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -402,8 +423,9 @@ export default function Portfolio() {
 
               return (
                 <div key={item.symbol}
-                  className={clsx("rounded-2xl p-4 relative border transition-all cursor-pointer",
+                  className={clsx("rounded-2xl p-4 relative border transition-all cursor-pointer glow-hover",
                     isUp ? "bg-green-gradient border-brand-green/20" : "bg-red-gradient border-brand-red/20")}
+                  style={{ animationDelay: `${portfolio.indexOf(item) * 60}ms` }}
                   onClick={() => !editing && !isEditingThis && setDetailSymbol(item.symbol)}>
 
                   {/* Active alert indicator */}
@@ -439,11 +461,21 @@ export default function Portfolio() {
                       <p className="text-white font-bold text-sm mb-1">{item.symbol}</p>
                       <input className="bg-brand-bg border border-brand-border rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-brand-accent/50"
                         placeholder={t("shares")} value={editShares} onChange={(e) => setEditShares(e.target.value)} type="number" />
+                      <p className="text-gray-500 text-[10px] text-center">{isRTL ? "— מחיר קנייה —" : "— purchase price —"}</p>
                       <input className="bg-brand-bg border border-brand-border rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-brand-accent/50"
-                        placeholder={t("avgPrice")} value={editAvg} onChange={(e) => setEditAvg(e.target.value)} type="number" />
+                        placeholder={isRTL ? "סה״כ ששילמת (למשל 6128)" : "Total paid (e.g. 6128)"}
+                        value={editTotal} onChange={(e) => { setEditTotal(e.target.value); setEditAvg(""); }} type="number" />
+                      <input className="bg-brand-bg border border-brand-border rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-brand-accent/50"
+                        placeholder={isRTL ? "או מחיר ממוצע למניה" : "Or avg price per share"}
+                        value={editAvg} onChange={(e) => { setEditAvg(e.target.value); setEditTotal(""); }} type="number" />
                       {item.manualPrice != null && (
                         <input className="bg-brand-bg border border-brand-border rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-brand-accent/50"
                           placeholder={isRTL ? "מחיר נוכחי" : "Current price"} value={editManual} onChange={(e) => setEditManual(e.target.value)} type="number" />
+                      )}
+                      {editTotal && editShares && parseFloat(editShares) > 0 && (
+                        <p className="text-brand-green text-[10px] text-center">
+                          {isRTL ? "מחיר ממוצע:" : "Avg price:"} {(parseFloat(editTotal) / parseFloat(editShares)).toFixed(2)}
+                        </p>
                       )}
                     </div>
                   ) : (
@@ -532,12 +564,47 @@ export default function Portfolio() {
           <p className="text-white text-sm font-semibold mb-3">{t("addPosition")}</p>
           <div className="flex flex-col gap-2">
             <SymbolSearch value={newSymbol} onChange={setNewSymbol} />
-            <div className="flex gap-2">
-              <input className="flex-1 bg-brand-surface border border-brand-border rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-brand-accent/50"
-                placeholder={t("shares")} type="number" value={newShares} onChange={(e) => setNewShares(e.target.value)} />
-              <input className="flex-1 bg-brand-surface border border-brand-border rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-brand-accent/50"
-                placeholder={t("avgPrice")} type="number" value={newAvg} onChange={(e) => setNewAvg(e.target.value)} />
+
+            {/* Shares */}
+            <input className="bg-brand-surface border border-brand-border rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-brand-accent/50"
+              placeholder={isRTL ? "מספר יחידות / מניות" : "Number of shares"} type="number" value={newShares}
+              onChange={(e) => {
+                setNewShares(e.target.value);
+                const total = parseFloat(newTotalInvested);
+                const sh = parseFloat(e.target.value);
+                if (total > 0 && sh > 0) setNewAvg((total / sh).toFixed(4));
+              }} />
+
+            {/* Total OR avg price */}
+            <div className="bg-brand-surface border border-brand-border rounded-xl px-3 py-2.5">
+              <p className="text-gray-500 text-[10px] mb-1.5">{isRTL ? "כמה שילמת? (בחר אחד)" : "What did you pay? (pick one)"}</p>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <p className="text-gray-600 text-[9px] mb-1">{isRTL ? "סה\"כ השקעה" : "Total invested"}</p>
+                  <input className="w-full bg-brand-bg border border-brand-border rounded-lg px-2.5 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-brand-accent/50"
+                    placeholder={newCurrency === "ILS" ? "₪ 6,128" : "$ 3,000"} type="number" value={newTotalInvested}
+                    onChange={(e) => {
+                      setNewTotalInvested(e.target.value);
+                      const total = parseFloat(e.target.value);
+                      const sh = parseFloat(newShares);
+                      if (total > 0 && sh > 0) setNewAvg((total / sh).toFixed(4));
+                    }} />
+                </div>
+                <div className="flex items-center text-gray-600 text-xs font-bold flex-shrink-0 mt-4">או</div>
+                <div className="flex-1">
+                  <p className="text-gray-600 text-[9px] mb-1">{isRTL ? "מחיר ליחידה" : "Price per share"}</p>
+                  <input className="w-full bg-brand-bg border border-brand-border rounded-lg px-2.5 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-brand-accent/50"
+                    placeholder={newCurrency === "ILS" ? "₪ 15.47" : "$ 600"} type="number" value={newAvg}
+                    onChange={(e) => { setNewAvg(e.target.value); setNewTotalInvested(""); }} />
+                </div>
+              </div>
+              {newTotalInvested && newShares && parseFloat(newShares) > 0 && (
+                <p className="text-brand-accent text-[10px] mt-1.5">
+                  → {isRTL ? "מחיר ליחידה" : "Per share"}: {newCurrency === "ILS" ? "₪" : "$"}{(parseFloat(newTotalInvested) / parseFloat(newShares)).toFixed(2)}
+                </p>
+              )}
             </div>
+
             <div className="flex gap-2">
               {(["USD", "ILS"] as const).map((c) => (
                 <button key={c} onClick={() => setNewCurrency(c)}
@@ -548,7 +615,7 @@ export default function Portfolio() {
               ))}
             </div>
             <input className="bg-brand-surface border border-brand-border rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-brand-accent/50"
-              placeholder={isRTL ? "מחיר נוכחי ידני (לקרנות ישראליות)" : "Manual current price (optional)"}
+              placeholder={isRTL ? "מחיר נוכחי ידני (לקרנות כמו ת\"א 125)" : "Manual current price (for funds)"}
               type="number" value={newManualPrice} onChange={(e) => setNewManualPrice(e.target.value)} />
             <button onClick={addPosition}
               className="flex items-center justify-center gap-2 bg-brand-accent hover:bg-blue-500 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors shadow-glow">

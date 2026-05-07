@@ -15,10 +15,12 @@ import DailySummary from "@/components/DailySummary";
 import GlobalSearch from "@/components/GlobalSearch";
 import CryptoTab from "@/components/CryptoTab";
 import WatchlistTab from "@/components/WatchlistTab";
-import { BarChart2, Newspaper, TrendingUp, Calendar, LineChart, Sun, Bitcoin, Bookmark } from "lucide-react";
+import ChatBot from "@/components/ChatBot";
+import LearnTab from "@/components/LearnTab";
+import { BarChart2, Newspaper, TrendingUp, Calendar, LineChart, Sun, Bitcoin, Bookmark, MessageCircle, GraduationCap } from "lucide-react";
 
-type Tab = "portfolio" | "watchlist" | "charts" | "today" | "news" | "screener" | "calendar" | "crypto";
-const TAB_ORDER: Tab[] = ["portfolio", "watchlist", "charts", "today", "news", "screener", "calendar", "crypto"];
+type Tab = "portfolio" | "watchlist" | "charts" | "today" | "news" | "screener" | "calendar" | "crypto" | "chat" | "learn";
+const TAB_ORDER: Tab[] = ["portfolio", "watchlist", "charts", "today", "news", "screener", "calendar", "crypto", "chat", "learn"];
 
 export default function Home() {
   const { t, isRTL, lang } = useApp();
@@ -81,6 +83,8 @@ export default function Home() {
     { key: "screener",  label: t("screener_tab"),  icon: <TrendingUp size={18} /> },
     { key: "calendar",  label: t("calendar_tab"),  icon: <Calendar size={18} /> },
     { key: "crypto",    label: t("crypto_tab"),    icon: <Bitcoin size={18} /> },
+    { key: "chat",      label: t("chat_tab"),      icon: <MessageCircle size={18} /> },
+    { key: "learn",     label: t("learn_tab"),     icon: <GraduationCap size={18} /> },
   ];
 
   return (
@@ -126,6 +130,8 @@ export default function Home() {
         {activeTab === "screener"  && <Screener />}
         {activeTab === "calendar"  && <EventCalendar />}
         {activeTab === "crypto"    && <CryptoTab />}
+        {activeTab === "chat"      && <ChatBot />}
+        {activeTab === "learn"     && <LearnTab />}
       </main>
     </div>
   );
