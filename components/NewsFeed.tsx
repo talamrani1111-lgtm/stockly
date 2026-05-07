@@ -124,15 +124,19 @@ export default function NewsFeed() {
   const { t, lang, isRTL, portfolio, selectedSectors } = useApp();
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<FilterType>("portfolio");
+  const [filter, setFilter] = useState<FilterType>(() => "portfolio");
 
   const portfolioSymbols = portfolio.map((p) => p.symbol);
   const sectorSymbols = [...new Set(selectedSectors.flatMap((s) => SECTOR_SYMBOLS[s] ?? []))];
 
+  // Set default filter based on language
+  useEffect(() => {
+    setFilter(lang === "he" ? "hebrew" : "portfolio");
+  }, []); // eslint-disable-line
+
   const fetchNews = useCallback(async () => {
     setLoading(true);
     try {
-      let url = "/api/news?";
       if (filter === "hebrew") {
         const res = await fetch("/api/news-hebrew");
         const data = await res.json();
@@ -140,18 +144,41 @@ export default function NewsFeed() {
         setLoading(false);
         return;
       }
-      if (filter === "portfolio") url += `symbols=${portfolioSymbols.join(",")}`;
-      else if (filter === "sectors") url += `symbols=${sectorSymbols.join(",")}`;
+
+      let url = "/api/news?";
+      if (filter === "portfolio") url += portfolioSymbols.length ? `symbols=${portfolioSymbols.join(",")}` : "general=true";
+      else if (filter === "sectors") url += sectorSymbols.length ? `symbols=${sectorSymbols.join(",")}` : "general=true";
       else url += "general=true";
 
-      const res = await fetch(url);
-      const data = await res.json();
-      setNews(Array.isArray(data) ? data : []);
+      // When lang=he, always mix in Hebrew news
+      if (lang === "he") {
+        const [enRes, heRes] = await Promise.all([fetch(url), fetch("/api/news-hebrew")]);
+        const enData: NewsItem[] = await enRes.json();
+        const heData: NewsItem[] = await heRes.json();
+        const merged = [
+          ...(Array.isArray(heData) ? heData : []),
+          ...(Array.isArray(enData) ? enData : []),
+        ];
+        // Deduplicate
+        const seen = new Set<string>();
+        const unique = merged.filter(item => {
+          const key = String(item.id);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        unique.sort((a, b) => b.datetime - a.datetime);
+        setNews(unique.slice(0, 50));
+      } else {
+        const res = await fetch(url);
+        const data = await res.json();
+        setNews(Array.isArray(data) ? data : []);
+      }
     } catch {
       setNews([]);
     }
     setLoading(false);
-  }, [filter, portfolioSymbols.join(","), sectorSymbols.join(",")]); // eslint-disable-line
+  }, [filter, lang, portfolioSymbols.join(","), sectorSymbols.join(",")]); // eslint-disable-line
 
   useEffect(() => { fetchNews(); }, [fetchNews]);
 

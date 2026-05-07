@@ -28,38 +28,33 @@ export default function DCACalculator() {
     if (!symbol || !monthly) return;
     setLoading(true); setError(false); setResult(null);
 
-    // Map months to Yahoo Finance range
     const rangeMap: Record<number, string> = {
       6: "6mo", 12: "1y", 24: "2y", 36: "3y", 60: "5y"
     };
     const range = rangeMap[period] ?? "1y";
 
     try {
-      const res = await fetch(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${symbol.toUpperCase()}?interval=1mo&range=${range}`
-      );
-      const data = await res.json();
-      const result = data?.chart?.result?.[0];
-      const timestamps: number[] = result?.timestamp ?? [];
-      const closes: number[] = result?.indicators?.quote?.[0]?.close ?? [];
+      const res = await fetch(`/api/dca-history?symbol=${symbol.toUpperCase()}&range=${range}`);
+      if (!res.ok) throw new Error("fetch failed");
+      const rawPoints: { ts: number; price: number }[] = await res.json();
 
       const monthlyAmt = parseFloat(monthly);
       let totalInvested = 0;
       let totalShares = 0;
       const points: DataPoint[] = [];
 
-      timestamps.forEach((ts, i) => {
-        const price = closes[i];
+      rawPoints.forEach(({ ts, price }) => {
         if (!price || price <= 0) return;
         totalShares += monthlyAmt / price;
         totalInvested += monthlyAmt;
         points.push({
-          date: new Date(ts * 1000).toLocaleDateString(lang === "he" ? "he-IL" : "en-US", { month: "short", year: "2-digit" }),
+          date: new Date(ts).toLocaleDateString(lang === "he" ? "he-IL" : "en-US", { month: "short", year: "2-digit" }),
           invested: totalInvested,
           value: totalShares * price,
         });
       });
 
+      if (!points.length) throw new Error("no data");
       setResult(points);
     } catch {
       setError(true);

@@ -115,23 +115,25 @@ function SectionTitle({ icon, text }: { icon: React.ReactNode; text: string }) {
 }
 
 // ── Single metric mini-card ──────────────────────────────────────
-function MetricCard({ label, v1, v2, win }: {
-  label: string; v1: string; v2: string; win: "left" | "right" | null;
+function MetricCard({ label, v1, v2, win, isRTL }: {
+  label: string; v1: string; v2: string; win: "left" | "right" | null; isRTL?: boolean;
 }) {
+  // In RTL the grid columns are visually reversed: col2=v2, col3=v1
+  // So we swap display order but keep win logic based on data
+  const col2 = isRTL ? v2 : v1;
+  const col3 = isRTL ? v1 : v2;
+  const col2Win = isRTL ? win === "right" : win === "left";
+  const col3Win = isRTL ? win === "left"  : win === "right";
   return (
     <div className="grid grid-cols-3 gap-1 py-2 border-b border-brand-border/30 last:border-0">
       <span className="text-gray-600 text-[10px] font-semibold self-center">{label}</span>
-      {(["left","right"] as const).map(side => {
-        const val = side === "left" ? v1 : v2;
-        const isWin = win === side;
-        return (
-          <div key={side} className={clsx("text-center rounded-lg py-1", isWin && "bg-brand-green/15")}>
-            <span className={clsx("text-xs font-bold", isWin ? "text-brand-green" : "text-gray-300")}>
-              {isWin && "✓ "}{val}
-            </span>
-          </div>
-        );
-      })}
+      {([{val: col2, isWin: col2Win}, {val: col3, isWin: col3Win}]).map(({val, isWin}, i) => (
+        <div key={i} className={clsx("text-center rounded-lg py-1", isWin && "bg-brand-green/15")}>
+          <span className={clsx("text-xs font-bold", isWin ? "text-brand-green" : "text-gray-300")}>
+            {isWin && "✓ "}{val}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -416,8 +418,17 @@ export default function StockCompare() {
           <SectionTitle icon={<Activity size={12} />} text={lhe ? "מחיר ושוק" : "Price & Market"} />
           <div className="grid grid-cols-3 gap-1 mb-2">
             <div />
-            <p className="text-center text-brand-accent font-bold text-sm">{s1.symbol}</p>
-            <p className="text-center text-white font-bold text-sm">{s2.symbol}</p>
+            {isRTL ? (
+              <>
+                <p className="text-center text-white font-bold text-sm">{s2.symbol}</p>
+                <p className="text-center text-brand-accent font-bold text-sm">{s1.symbol}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-center text-brand-accent font-bold text-sm">{s1.symbol}</p>
+                <p className="text-center text-white font-bold text-sm">{s2.symbol}</p>
+              </>
+            )}
           </div>
           {[
             { label: lhe ? "מחיר"         : "Price",       v1: fmt(s1.price,"$"),                     v2: fmt(s2.price,"$"),                     win: null },
@@ -426,7 +437,7 @@ export default function StockCompare() {
             { label: lhe ? "שפל 52 שב׳"  : "52W Low",     v1: fmt(s1.week52Low,"$"),                 v2: fmt(s2.week52Low,"$"),                 win: null },
             { label: lhe ? "שווי שוק"    : "Mkt Cap",     v1: fmtBig(s1.marketCap),                  v2: fmtBig(s2.marketCap),                  win: w(s1.marketCap, s2.marketCap) },
             { label: lhe ? "מחזור יומי"  : "Avg Vol",     v1: fmtVol(s1.avgVolume),                  v2: fmtVol(s2.avgVolume),                  win: null },
-          ].map((r, i) => <MetricCard key={i} label={r.label} v1={r.v1} v2={r.v2} win={r.win} />)}
+          ].map((r, i) => <MetricCard key={i} label={r.label} v1={r.v1} v2={r.v2} win={r.win} isRTL={isRTL} />)}
 
           {/* ── VALUATION ───────────────────────── */}
           <SectionTitle icon={<DollarSign size={12} />} text={lhe ? "תמחור" : "Valuation"} />
@@ -438,7 +449,7 @@ export default function StockCompare() {
             { label: "EPS",                  v1: fmt(s1.eps,"$"),              v2: fmt(s2.eps,"$"),              win: w(s1.eps, s2.eps) },
             { label: lhe?"EPS עתידי":"Fwd EPS",  v1: fmt(s1.forwardEps,"$"),      v2: fmt(s2.forwardEps,"$"),      win: w(s1.forwardEps, s2.forwardEps) },
             { label: lhe?"דיבידנד":"Dividend",   v1: s1.dividendYield ? `${(s1.dividendYield*100).toFixed(2)}%` : "—", v2: s2.dividendYield ? `${(s2.dividendYield*100).toFixed(2)}%` : "—", win: w(s1.dividendYield, s2.dividendYield) },
-          ].map((r, i) => <MetricCard key={i} label={r.label} v1={r.v1} v2={r.v2} win={r.win} />)}
+          ].map((r, i) => <MetricCard key={i} label={r.label} v1={r.v1} v2={r.v2} win={r.win} isRTL={isRTL} />)}
 
           {/* ── GROWTH ──────────────────────────── */}
           <SectionTitle icon={<TrendingUp size={12} />} text={lhe ? "צמיחה" : "Growth"} />
@@ -446,7 +457,7 @@ export default function StockCompare() {
             { label: lhe?"צמיחת הכנסות":"Rev Growth",   v1: fmtPct(s1.revenueGrowth),              v2: fmtPct(s2.revenueGrowth),              win: w(s1.revenueGrowth, s2.revenueGrowth) },
             { label: lhe?"תחזית EPS שנה":"EPS Growth/yr", v1: fmtPct(s1.epsGrowthNextYear),         v2: fmtPct(s2.epsGrowthNextYear),         win: w(s1.epsGrowthNextYear, s2.epsGrowthNextYear) },
             { label: lhe?"תחזית הכנסות שנה":"Rev/yr est", v1: fmtPct(s1.revenueGrowthNextYear),     v2: fmtPct(s2.revenueGrowthNextYear),     win: w(s1.revenueGrowthNextYear, s2.revenueGrowthNextYear) },
-          ].map((r, i) => <MetricCard key={i} label={r.label} v1={r.v1} v2={r.v2} win={r.win} />)}
+          ].map((r, i) => <MetricCard key={i} label={r.label} v1={r.v1} v2={r.v2} win={r.win} isRTL={isRTL} />)}
 
           {/* ── FINANCIALS ──────────────────────── */}
           <SectionTitle icon={<BarChart3 size={12} />} text={lhe ? "פיננסים" : "Financials"} />
@@ -458,7 +469,7 @@ export default function StockCompare() {
             { label: lhe?"חוב":"Total Debt",             v1: fmtBig(s1.totalDebt),  v2: fmtBig(s2.totalDebt),  win: w(s1.totalDebt, s2.totalDebt, false) },
             { label: "FCF",                              v1: fmtBig(s1.freeCashFlow),v2: fmtBig(s2.freeCashFlow),win: w(s1.freeCashFlow, s2.freeCashFlow) },
             { label: lhe?"חוב/הון":"D/E",                v1: fmt(s1.debtToEquity,"","",1), v2: fmt(s2.debtToEquity,"","",1), win: w(s1.debtToEquity, s2.debtToEquity, false) },
-          ].map((r, i) => <MetricCard key={i} label={r.label} v1={r.v1} v2={r.v2} win={r.win} />)}
+          ].map((r, i) => <MetricCard key={i} label={r.label} v1={r.v1} v2={r.v2} win={r.win} isRTL={isRTL} />)}
 
           {/* ── RISK ────────────────────────────── */}
           <SectionTitle icon={<Shield size={12} />} text={lhe ? "סיכון ובעלות" : "Risk & Ownership"} />
@@ -467,7 +478,7 @@ export default function StockCompare() {
             { label: lhe?"שורטים":"Short Float",          v1: s1.shortFloat ? `${(s1.shortFloat*100).toFixed(1)}%` : "—", v2: s2.shortFloat ? `${(s2.shortFloat*100).toFixed(1)}%` : "—", win: w(s1.shortFloat, s2.shortFloat, false) },
             { label: lhe?"מוסדיים":"Institutions",        v1: s1.institutionalPct ? `${(s1.institutionalPct*100).toFixed(0)}%` : "—", v2: s2.institutionalPct ? `${(s2.institutionalPct*100).toFixed(0)}%` : "—", win: w(s1.institutionalPct, s2.institutionalPct) },
             { label: lhe?"אינסיידרים":"Insiders",         v1: s1.insiderPct ? `${(s1.insiderPct*100).toFixed(1)}%` : "—", v2: s2.insiderPct ? `${(s2.insiderPct*100).toFixed(1)}%` : "—", win: null },
-          ].map((r, i) => <MetricCard key={i} label={r.label} v1={r.v1} v2={r.v2} win={r.win} />)}
+          ].map((r, i) => <MetricCard key={i} label={r.label} v1={r.v1} v2={r.v2} win={r.win} isRTL={isRTL} />)}
 
           {/* ── ANALYST TARGET ──────────────────── */}
           <SectionTitle icon={<Target size={12} />} text={lhe ? "יעד אנליסטים" : "Analyst Target"} />
@@ -475,7 +486,7 @@ export default function StockCompare() {
             { label: lhe?"יעד מחיר":"Price Target",       v1: fmt(s1.targetPrice,"$",""  ,0), v2: fmt(s2.targetPrice,"$","",0), win: null },
             { label: lhe?"עלייה פוטנציאלית":"Upside",     v1: s1.targetPrice && s1.price ? `${(((s1.targetPrice-s1.price)/s1.price)*100).toFixed(1)}%` : "—", v2: s2.targetPrice && s2.price ? `${(((s2.targetPrice-s2.price)/s2.price)*100).toFixed(1)}%` : "—", win: (() => { const u1 = s1.targetPrice&&s1.price?(s1.targetPrice-s1.price)/s1.price:null; const u2 = s2.targetPrice&&s2.price?(s2.targetPrice-s2.price)/s2.price:null; return w(u1,u2); })() },
             { label: lhe?"המלצה":"Recommendation",        v1: recLabel(s1.recommendationKey, lang), v2: recLabel(s2.recommendationKey, lang), win: null },
-          ].map((r, i) => <MetricCard key={i} label={r.label} v1={r.v1} v2={r.v2} win={r.win} />)}
+          ].map((r, i) => <MetricCard key={i} label={r.label} v1={r.v1} v2={r.v2} win={r.win} isRTL={isRTL} />)}
 
           {/* ── VERDICT ─────────────────────────── */}
           <div className="mt-4">

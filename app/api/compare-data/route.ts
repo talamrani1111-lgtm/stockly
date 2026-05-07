@@ -66,7 +66,6 @@ export async function GET(req: NextRequest) {
           employees:       (ap.fullTimeEmployees as number)    ?? null,
           country:         (ap.country as string)              ?? null,
           website:         (ap.website as string)              ?? null,
-          founded:         (ap.companyOfficers as unknown[])   ?? null,
           // Financials
           grossMargins:    (fd.grossMargins as {raw?: number})?.raw          ?? null,
           operatingMargins:(fd.operatingMargins as {raw?: number})?.raw      ?? null,
