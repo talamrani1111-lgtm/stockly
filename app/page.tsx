@@ -31,6 +31,7 @@ export default function Home() {
   const [showRegister, setShowRegister] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [tappedNav, setTappedNav] = useState<string | null>(null);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
 
@@ -97,6 +98,9 @@ export default function Home() {
   function selectTab(tab: Tab) {
     setActiveTab(tab);
     setShowMore(false);
+    setTappedNav(tab);
+    setTimeout(() => setTappedNav(null), 260);
+    navigator.vibrate?.(8);
   }
 
   return (
@@ -112,7 +116,8 @@ export default function Home() {
 
       {/* Content */}
       <main
-        className="flex-1 overflow-y-auto px-4 pt-4 pb-24"
+        key={activeTab}
+        className="flex-1 overflow-y-auto px-4 pt-4 pb-24 tab-enter"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -166,9 +171,9 @@ export default function Home() {
           <div className="flex">
             {primaryTabs.map(tab => (
               <button key={tab.key} onClick={() => selectTab(tab.key)}
-                className={`flex-1 flex flex-col items-center gap-1 py-2.5 transition-all relative ${
-                  activeTab === tab.key ? "text-brand-accent" : "text-gray-500 hover:text-gray-300"
-                }`}>
+                className={`flex-1 flex flex-col items-center gap-1 py-2.5 transition-colors relative ${
+                  tappedNav === tab.key ? "nav-tap" : ""
+                } ${activeTab === tab.key ? "text-brand-accent" : "text-gray-500 hover:text-gray-300"}`}>
                 {tab.icon}
                 <span className="text-[9px] font-semibold">{tab.label}</span>
                 {activeTab === tab.key && (
@@ -178,8 +183,8 @@ export default function Home() {
             ))}
 
             {/* More button */}
-            <button onClick={() => setShowMore(v => !v)}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 transition-all relative ${
+            <button onClick={() => { setShowMore(v => !v); navigator.vibrate?.(8); }}
+              className={`flex-1 flex flex-col items-center gap-1 py-2.5 transition-colors relative ${
                 isMoreActive || showMore ? "text-brand-accent" : "text-gray-500 hover:text-gray-300"
               }`}>
               <MoreHorizontal size={22} />

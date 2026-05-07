@@ -125,3 +125,43 @@ body {
   100% { transform: scale(1); }
 }
 .number-pop { animation: number-pop 0.4s ease-out; }
+
+/* Tab content fade-in */
+@keyframes tab-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.tab-enter { animation: tab-fade-in 0.22s ease-out both; }
+
+/* Card entrance stagger */
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.card-enter { animation: card-in 0.3s ease-out both; }
+
+/* Bottom nav tap scale */
+@keyframes nav-tap {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(0.88); }
+  100% { transform: scale(1); }
+}
+.nav-tap { animation: nav-tap 0.25s ease-out; }
+
+/* Value change flash for portfolio total */
+@keyframes value-up {
+  0%   { color: #fff; }
+  25%  { color: #22c55e; text-shadow: 0 0 14px rgba(34,197,94,0.5); }
+  100% { color: #fff; text-shadow: none; }
+}
+@keyframes value-down {
+  0%   { color: #fff; }
+  25%  { color: #ef4444; text-shadow: 0 0 14px rgba(239,68,68,0.5); }
+  100% { color: #fff; text-shadow: none; }
+}
+.value-flash-up   { animation: value-up   0.7s ease-out; }
+.value-flash-down { animation: value-down 0.7s ease-out; }
+
+/* Smooth press effect */
+.press-effect { transition: transform 0.12s ease; }
+.press-effect:active { transform: scale(0.94); }

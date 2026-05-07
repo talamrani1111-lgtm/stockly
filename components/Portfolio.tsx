@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useApp, PortfolioItem, PriceAlert } from "@/lib/context";
+import { useCountUp } from "@/lib/useCountUp";
 import { TrendingUp, TrendingDown, Plus, Trash2, Pencil, Check, ChevronUp, ChevronDown, LineChart, Share2 } from "lucide-react";
 import clsx from "clsx";
 import StockDetailSheet from "./StockDetailSheet";
@@ -112,6 +113,10 @@ export default function Portfolio() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [streak, setStreak] = useState(0);
   const prevHighRef = useRef(0);
+  const prevQuotesRef = useRef<Record<string, Quote>>({});
+  const [flashMap, setFlashMap] = useState<Record<string, "up" | "down">>({});
+  const [valueFlash, setValueFlash] = useState<"up" | "down" | null>(null);
+  const prevTotalRef = useRef(0);
 
   const symbols = portfolio.filter((p) => !p.manualPrice).map((p) => p.symbol);
 
@@ -122,6 +127,21 @@ export default function Portfolio() {
       const data: Quote[] = await res.json();
       const map: Record<string, Quote> = {};
       data.forEach((q) => (map[q.symbol] = q));
+
+      // Detect price changes and schedule flash
+      const flashes: Record<string, "up" | "down"> = {};
+      data.forEach(q => {
+        const prev = prevQuotesRef.current[q.symbol];
+        if (prev && prev.price !== q.price) {
+          flashes[q.symbol] = q.price > prev.price ? "up" : "down";
+        }
+      });
+      if (Object.keys(flashes).length) {
+        setFlashMap(flashes);
+        setTimeout(() => setFlashMap({}), 900);
+      }
+      prevQuotesRef.current = map;
+
       setQuotes(map);
     } catch {}
     setLoading(false);
@@ -262,6 +282,20 @@ export default function Portfolio() {
   const totalPnLPct = totalCostUSD > 0 ? (totalPnL / totalCostUSD) * 100 : 0;
   const totalILS = totalValueUSD * forex;
 
+  // Animated total value
+  const animatedTotal = useCountUp(totalValueUSD, 700);
+
+  // Flash total value on change
+  useEffect(() => {
+    if (loading || totalValueUSD === 0) return;
+    if (prevTotalRef.current === 0) { prevTotalRef.current = totalValueUSD; return; }
+    if (totalValueUSD !== prevTotalRef.current) {
+      setValueFlash(totalValueUSD > prevTotalRef.current ? "up" : "down");
+      setTimeout(() => setValueFlash(null), 750);
+      prevTotalRef.current = totalValueUSD;
+    }
+  }, [totalValueUSD, loading]);
+
   function formatPrice(item: PortfolioItem, price: number): string {
     return item.currency === "ILS" ? `₪${price.toFixed(2)}` : `$${price.toFixed(2)}`;
   }
@@ -375,10 +409,10 @@ export default function Portfolio() {
           </button>
         </div>
         <div className="flex items-end gap-3 flex-wrap mb-2">
-          <span className="text-white text-3xl font-bold tracking-tight">
-            {loading ? <span className="shimmer inline-block w-28 h-8 rounded-lg" /> : `$${totalValueUSD.toLocaleString("en", { maximumFractionDigits: 0 })}`}
+          <span className={`text-white text-3xl font-bold tracking-tight transition-all ${valueFlash === "up" ? "value-flash-up" : valueFlash === "down" ? "value-flash-down" : ""}`}>
+            {loading ? <span className="shimmer inline-block w-28 h-8 rounded-lg" /> : `$${Math.round(animatedTotal).toLocaleString("en")}`}
           </span>
-          {!loading && <span className="text-gray-400 text-base mb-1">≈ ₪{totalILS.toLocaleString("he", { maximumFractionDigits: 0 })}</span>}
+          {!loading && <span className="text-gray-400 text-base mb-1">≈ ₪{Math.round(animatedTotal * forex).toLocaleString("he")}</span>}
         </div>
         {totalCostUSD > 0 && !loading && (
           <div className={clsx("flex items-center gap-1.5 text-sm font-semibold", totalPnL >= 0 ? "text-brand-green" : "text-brand-red")}>
@@ -490,7 +524,7 @@ export default function Portfolio() {
           <p className="text-white font-semibold text-base mb-1">{isRTL ? "התיק שלך ריק" : "Your portfolio is empty"}</p>
           <p className="text-gray-500 text-sm mb-4">{isRTL ? "לחץ על עריכה כדי להוסיף מניות" : "Tap Edit to add your first stock"}</p>
           <button onClick={() => setEditing(true)}
-            className="flex items-center gap-2 bg-brand-accent hover:bg-blue-500 text-white rounded-2xl px-5 py-2.5 text-sm font-semibold transition-all shadow-glow">
+            className="flex items-center gap-2 bg-brand-accent hover:bg-blue-500 text-white rounded-2xl px-5 py-2.5 text-sm font-semibold transition-all shadow-glow press-effect">
             <Plus size={15} />
             {isRTL ? "הוסף מניה" : "Add Stock"}
           </button>
@@ -511,11 +545,12 @@ export default function Portfolio() {
               const isEditingThis = editingItem === item.symbol;
               const activeAlerts = alerts.filter(a => a.symbol === item.symbol && !a.triggered);
 
+              const flash = flashMap[item.symbol];
               return (
                 <div key={item.symbol}
-                  className={clsx("rounded-2xl p-4 relative border transition-all cursor-pointer glow-hover",
+                  className={clsx("rounded-2xl p-4 relative border transition-all cursor-pointer glow-hover card-enter",
                     isUp ? "bg-green-gradient border-brand-green/20" : "bg-red-gradient border-brand-red/20")}
-                  style={{ animationDelay: `${portfolio.indexOf(item) * 60}ms` }}
+                  style={{ animationDelay: `${portfolio.indexOf(item) * 55}ms` }}
                   onClick={() => !editing && !isEditingThis && setDetailSymbol(item.symbol)}>
 
                   {/* Active alert indicator */}
@@ -581,7 +616,8 @@ export default function Portfolio() {
                           <LineChart size={13} className={isUp ? "text-brand-green" : "text-brand-red"} />
                         </button>
                       </div>
-                      <p className="text-white text-xl font-bold tracking-tight mb-0.5">
+                      <p className={clsx("text-white text-xl font-bold tracking-tight mb-0.5",
+                        flash === "up" ? "flash-green" : flash === "down" ? "flash-red" : "")}>
                         {price ? formatPrice(item, price) : "—"}
                         {isManual && <span className="text-gray-500 text-xs ms-1">✎</span>}
                       </p>
