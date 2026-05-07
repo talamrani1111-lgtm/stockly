@@ -9,6 +9,12 @@ import ShareExport from "./ShareExport";
 import PortfolioDonut from "./PortfolioDonut";
 import PortfolioStats from "./PortfolioStats";
 import MarketComparison from "./MarketComparison";
+import DailyInsight from "./DailyInsight";
+import BadgesPanel from "./BadgesPanel";
+import AchievementToast from "./AchievementToast";
+import Confetti from "./Confetti";
+import PortfolioGoal from "./PortfolioGoal";
+import { checkAndAward, updateStreak, addXP, getStreak, type Badge } from "@/lib/gamification";
 
 type Quote = { symbol: string; price: number; change: number; changePercent: number };
 type PriceTarget = { targetMean: number; targetHigh: number; targetLow: number; recommendation: string | null; numberOfAnalysts: number | null };
@@ -99,6 +105,10 @@ export default function Portfolio() {
   const [detailSymbol, setDetailSymbol] = useState<string | null>(null);
   const [targets, setTargets] = useState<Record<string, PriceTarget>>({});
   const [showShare, setShowShare] = useState(false);
+  const [newBadges, setNewBadges] = useState<Badge[]>([]);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [streak, setStreak] = useState(0);
+  const prevHighRef = useRef(0);
 
   const symbols = portfolio.filter((p) => !p.manualPrice).map((p) => p.symbol);
 
@@ -124,7 +134,14 @@ export default function Portfolio() {
     return () => clearInterval(id);
   }, [fetchQuotes]);
 
-  // Save portfolio value history
+  // Streak on first load
+  useEffect(() => {
+    const s = updateStreak();
+    setStreak(s.current);
+    addXP(5);
+  }, []); // eslint-disable-line
+
+  // Save portfolio value history + badges + confetti
   useEffect(() => {
     if (loading || !Object.keys(quotes).length) return;
     const total = portfolio.reduce((sum, item) => {
@@ -132,7 +149,38 @@ export default function Portfolio() {
       const val = p * item.shares;
       return sum + (item.currency === "ILS" ? val / forex : val);
     }, 0);
-    if (total > 0) savePortfolioValue(total);
+    if (total <= 0) return;
+    savePortfolioValue(total);
+
+    // All-time high check
+    const storedHigh = parseFloat(localStorage.getItem("portfolio_ath") ?? "0");
+    const isATH = total > storedHigh && storedHigh > 0;
+    if (total > storedHigh) localStorage.setItem("portfolio_ath", String(total));
+    if (isATH && prevHighRef.current > 0 && total > prevHighRef.current * 1.001) {
+      setShowConfetti(true);
+    }
+    prevHighRef.current = total;
+
+    const cost = portfolio.reduce((sum, item) => {
+      const c = item.avgPrice * item.shares;
+      return sum + (item.currency === "ILS" ? c / forex : c);
+    }, 0);
+    const returnPct = cost > 0 ? ((total - cost) / cost) * 100 : 0;
+    const lessonsCompleted = (() => {
+      try { return JSON.parse(localStorage.getItem("learn_completed") ?? "[]").length; } catch { return 0; }
+    })();
+
+    const earned = checkAndAward({
+      portfolioSize: portfolio.length,
+      portfolioValue: total,
+      portfolioReturn: returnPct,
+      isAllTimeHigh: isATH,
+      lessonsCompleted,
+    });
+    if (earned.length) {
+      setNewBadges(earned);
+      addXP(earned.length * 50);
+    }
   }, [quotes, loading]); // eslint-disable-line
 
   // Check price alerts
@@ -283,6 +331,14 @@ export default function Portfolio() {
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"}>
+      {/* Confetti on ATH */}
+      {showConfetti && <Confetti onDone={() => setShowConfetti(false)} />}
+
+      {/* Achievement toast */}
+      {newBadges.length > 0 && (
+        <AchievementToast badges={newBadges} onDone={() => setNewBadges([])} />
+      )}
+
       {/* Share/Export sheet */}
       {showShare && (
         <ShareExport
@@ -383,6 +439,24 @@ export default function Portfolio() {
           totalCostUSD={totalCostUSD}
         />
       )}
+
+      {/* Daily insight card */}
+      {!loading && portfolio.length > 0 && Object.keys(quotes).length > 0 && (
+        <DailyInsight
+          quotes={quotes}
+          forex={forex}
+          totalValueUSD={totalValueUSD}
+          totalPnL={totalPnL}
+          totalCostUSD={totalCostUSD}
+          streak={streak}
+        />
+      )}
+
+      {/* Portfolio goal */}
+      {!loading && <PortfolioGoal currentValue={totalValueUSD} />}
+
+      {/* Badges & XP */}
+      {!loading && <BadgesPanel />}
 
       {/* Portfolio vs Market comparison */}
       {!loading && portfolio.length > 0 && (

@@ -82,9 +82,9 @@ function isIsraeliSource(url: string): boolean {
 
 export async function GET() {
   const [stocks, market, tech] = await Promise.all([
-    fetchGoogleNews("בורסה מניות site:globes.co.il OR site:calcalist.co.il OR site:themarker.com", "כלכלה"),
-    fetchGoogleNews("שוק ההון ישראל site:ynet.co.il OR site:globes.co.il OR site:themarker.com", "שוק ההון"),
-    fetchGoogleNews("טכנולוגיה השקעות ישראל site:calcalist.co.il OR site:globes.co.il", "טק"),
+    fetchGoogleNews("בורסה מניות ישראל", "כלכלה"),
+    fetchGoogleNews("שוק ההון ישראל השקעות", "שוק ההון"),
+    fetchGoogleNews("טכנולוגיה סטארטאפ ישראל", "טק"),
   ]);
 
   const all = [...stocks, ...market, ...tech];

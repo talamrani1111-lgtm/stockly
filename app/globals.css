@@ -71,3 +71,57 @@ body {
 
 /* Tab active glow */
 .tab-glow { filter: drop-shadow(0 0 6px rgba(59,130,246,0.6)); }
+
+/* Price flash on update */
+@keyframes price-flash-green {
+  0% { color: #fff; }
+  30% { color: #22c55e; background: rgba(34,197,94,0.12); border-radius: 6px; }
+  100% { color: #fff; background: transparent; }
+}
+@keyframes price-flash-red {
+  0% { color: #fff; }
+  30% { color: #ef4444; background: rgba(239,68,68,0.12); border-radius: 6px; }
+  100% { color: #fff; background: transparent; }
+}
+.flash-green { animation: price-flash-green 0.8s ease-out; }
+.flash-red   { animation: price-flash-red 0.8s ease-out; }
+
+/* Slide up reveal */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.slide-up { animation: slide-up 0.35s ease-out both; }
+
+/* Stagger children */
+.slide-up-1 { animation: slide-up 0.35s 0.05s ease-out both; }
+.slide-up-2 { animation: slide-up 0.35s 0.10s ease-out both; }
+.slide-up-3 { animation: slide-up 0.35s 0.15s ease-out both; }
+.slide-up-4 { animation: slide-up 0.35s 0.20s ease-out both; }
+
+/* Live ping */
+@keyframes live-ping {
+  0%   { transform: scale(1); opacity: 1; }
+  75%, 100% { transform: scale(2.2); opacity: 0; }
+}
+.live-ping::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: live-ping 1.5s cubic-bezier(0,0,0.2,1) infinite;
+}
+.live-ping { position: relative; }
+
+/* Glow card hover */
+.glow-hover { transition: box-shadow 0.2s; }
+.glow-hover:hover { box-shadow: 0 0 0 1px rgba(59,130,246,0.3), 0 4px 20px rgba(59,130,246,0.08); }
+
+/* Number pop */
+@keyframes number-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+.number-pop { animation: number-pop 0.4s ease-out; }

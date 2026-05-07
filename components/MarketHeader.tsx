@@ -130,10 +130,23 @@ export default function MarketHeader({ onLogout, onSearch }: { onLogout?: () => 
           </span>
         </div>
 
-        {/* Live indicator */}
-        <div className="flex items-center gap-1.5 ms-auto">
-          <Zap size={10} className="text-brand-accent" />
-          <span className="text-gray-500 text-xs">Live</span>
+        {/* Live indicator — only when market open */}
+        <div className="flex items-center gap-2 ms-auto">
+          {data.marketStatus === "open" && (
+            <div className="flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="live-ping bg-brand-green rounded-full absolute inline-flex h-full w-full" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-green" />
+              </span>
+              <span className="text-brand-green text-[10px] font-bold">LIVE</span>
+            </div>
+          )}
+          {data.marketStatus !== "open" && (
+            <div className="flex items-center gap-1.5">
+              <Zap size={10} className="text-gray-600" />
+              <span className="text-gray-600 text-[10px]">{data.marketStatus === "premarket" ? "Pre" : data.marketStatus === "afterhours" ? "AH" : "Closed"}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

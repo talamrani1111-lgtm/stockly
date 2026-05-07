@@ -42,19 +42,53 @@ function getSentiment(headline: string): "positive" | "negative" | "neutral" {
   return "neutral";
 }
 
+const POSITIVE_WORDS_HE = ["עלייה", "זינוק", "שיא", "רווח", "עולה", "חיובי", "שדרוג", "גידול", "עלה", "ירד"];
+const NEGATIVE_WORDS_HE = ["ירידה", "נפילה", "הפסד", "סיכון", "שלילי", "הורדה", "חשש", "האטה", "קריסה"];
+
+function getSentimentHe(headline: string): "positive" | "negative" | "neutral" {
+  const text = headline;
+  const pos = POSITIVE_WORDS_HE.filter(w => text.includes(w)).length;
+  const neg = NEGATIVE_WORDS_HE.filter(w => text.includes(w)).length;
+  if (pos > neg) return "positive";
+  if (neg > pos) return "negative";
+  return "neutral";
+}
+
 function NewsCard({ item, lang }: { item: NewsItem; lang: string }) {
-  const sentiment = getSentiment(item.headline);
+  const isHebrew = item.lang === "he";
+  const sentiment = isHebrew ? getSentimentHe(item.headline) : getSentiment(item.headline);
   const sentimentBorder = sentiment === "positive" ? "border-brand-green/20 hover:border-brand-green/40"
     : sentiment === "negative" ? "border-brand-red/20 hover:border-brand-red/30"
     : "border-brand-border hover:border-brand-accent/30";
   const sentimentDot = sentiment === "positive" ? "bg-brand-green"
-    : sentiment === "negative" ? "bg-brand-red"
-    : null;
+    : sentiment === "negative" ? "bg-brand-red" : null;
+
+  if (isHebrew) {
+    return (
+      <a href={item.url} target="_blank" rel="noopener noreferrer"
+        className={`group bg-brand-card border ${sentimentBorder} rounded-2xl p-4 transition-all hover:bg-white/[0.03] block`}
+        dir="rtl">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <p className="text-white text-sm font-semibold leading-snug line-clamp-3 group-hover:text-brand-accent transition-colors text-right flex-1">
+            {item.headline}
+          </p>
+          {sentimentDot && <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-1 ${sentimentDot}`} />}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap justify-start">
+          <span className="text-brand-accent/80 text-xs font-semibold bg-brand-accent/10 px-2 py-0.5 rounded-lg">
+            {item.source}
+          </span>
+          <span className="text-gray-500 text-xs">{timeAgo(item.datetime, "he")}</span>
+          <ExternalLink size={10} className="text-gray-600 mr-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </a>
+    );
+  }
 
   return (
     <a href={item.url} target="_blank" rel="noopener noreferrer"
       className={`group bg-brand-card border ${sentimentBorder} rounded-2xl p-4 flex gap-3 transition-all hover:bg-white/[0.03]`}
-      dir={item.lang === "he" ? "rtl" : "ltr"}>
+      dir="ltr">
       {item.image && (
         <img src={item.image} alt="" className="w-20 h-20 rounded-xl object-cover flex-shrink-0 opacity-90"
           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />

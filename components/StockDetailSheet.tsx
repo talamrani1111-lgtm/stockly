@@ -151,8 +151,12 @@ export default function StockDetailSheet({ symbol, quote, portfolioItem, forex, 
     if (e.changedTouches[0].clientY - startY.current > 80) onClose();
   }
 
-  const up = (quote?.changePercent ?? 0) >= 0;
-  const price = quote?.price ?? 0;
+  const isManual = portfolioItem?.manualPrice != null && portfolioItem.manualPrice > 0;
+  const price = portfolioItem?.manualPrice ?? quote?.price ?? 0;
+  const up = isManual
+    ? price >= (portfolioItem?.avgPrice ?? 0)
+    : (quote?.changePercent ?? 0) >= 0;
+  const currencySign = portfolioItem?.currency === "ILS" ? "₪" : "$";
 
   const pnlAmt = portfolioItem && price && portfolioItem.avgPrice
     ? (price - portfolioItem.avgPrice) * portfolioItem.shares : null;
@@ -190,11 +194,13 @@ export default function StockDetailSheet({ symbol, quote, portfolioItem, forex, 
               )}
             </div>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-white text-2xl font-bold">${fmt(price)}</span>
-              <span className={clsx("flex items-center gap-0.5 text-sm font-semibold", up ? "text-brand-green" : "text-brand-red")}>
-                {up ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                {fmt(Math.abs(quote?.change ?? 0))} ({fmt(Math.abs(quote?.changePercent ?? 0))}%)
-              </span>
+              <span className="text-white text-2xl font-bold">{currencySign}{fmt(price)}</span>
+              {!isManual && (
+                <span className={clsx("flex items-center gap-0.5 text-sm font-semibold", up ? "text-brand-green" : "text-brand-red")}>
+                  {up ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  {fmt(Math.abs(quote?.change ?? 0))} ({fmt(Math.abs(quote?.changePercent ?? 0))}%)
+                </span>
+              )}
             </div>
           </div>
           <button onClick={onClose}
@@ -388,17 +394,17 @@ export default function StockDetailSheet({ symbol, quote, portfolioItem, forex, 
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-white text-sm">{portfolioItem.shares} {isRTL ? "מניות" : "shares"}</p>
-                  <p className="text-gray-400 text-xs">{isRTL ? "עלות ממוצעת:" : "Avg cost:"} ${fmt(portfolioItem.avgPrice)}</p>
+                  <p className="text-gray-400 text-xs">{isRTL ? "עלות ממוצעת:" : "Avg cost:"} {currencySign}{fmt(portfolioItem.avgPrice)}</p>
                 </div>
                 <div className="text-end">
                   <p className="text-white text-sm font-bold">
-                    {portfolioItem.currency === "ILS" ? "₪" : "$"}
-                    {(price * portfolioItem.shares).toLocaleString("en", { maximumFractionDigits: 0 })}
+                    {currencySign}
+                    {(price * portfolioItem.shares).toLocaleString("he", { maximumFractionDigits: 0 })}
                   </p>
                   <p className={clsx("text-xs font-bold flex items-center gap-0.5 justify-end",
                     pnlAmt >= 0 ? "text-brand-green" : "text-brand-red")}>
                     {pnlAmt >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                    {pnlAmt >= 0 ? "+" : ""}${Math.abs(pnlAmt).toFixed(0)}
+                    {pnlAmt >= 0 ? "+" : ""}{currencySign}{Math.abs(pnlAmt).toFixed(0)}
                     {" "}({pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(1)}%)
                   </p>
                 </div>
@@ -407,7 +413,7 @@ export default function StockDetailSheet({ symbol, quote, portfolioItem, forex, 
           )}
 
           {/* Stop Loss */}
-          {portfolioItem && price > 0 && (
+          {portfolioItem && price > 0 && !isManual && (
             <div className="bg-brand-red/8 border border-brand-red/20 rounded-2xl p-4">
               <p className="text-white text-sm font-semibold mb-3">
                 🛡 {isRTL ? "Stop Loss אוטומטי" : "Auto Stop Loss"}
@@ -432,9 +438,9 @@ export default function StockDetailSheet({ symbol, quote, portfolioItem, forex, 
                 <p className="text-gray-500 text-xs mt-2 mb-3">
                   {isRTL ? "יעד:" : "Target:"}{" "}
                   <span className="text-brand-red font-semibold">
-                    ${(portfolioItem.avgPrice * (1 - parseFloat(stopLossPct) / 100)).toFixed(2)}
+                    {currencySign}{(portfolioItem.avgPrice * (1 - parseFloat(stopLossPct) / 100)).toFixed(2)}
                   </span>
-                  {" "}({isRTL ? "עלות קנייה" : "buy price"} ${portfolioItem.avgPrice.toFixed(2)})
+                  {" "}({isRTL ? "עלות קנייה" : "buy price"} {currencySign}{portfolioItem.avgPrice.toFixed(2)})
                 </p>
               )}
               <button onClick={() => {
@@ -480,7 +486,7 @@ export default function StockDetailSheet({ symbol, quote, portfolioItem, forex, 
                 <div className="flex gap-2">
                   <input
                     className="flex-1 bg-brand-surface border border-brand-border rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-brand-accent/50"
-                    placeholder={`$${price > 0 ? fmt(price) : "0.00"}`}
+                    placeholder={`${currencySign}${price > 0 ? fmt(price) : "0.00"}`}
                     type="number" step="0.01"
                     value={alertPrice} onChange={e => setAlertPrice(e.target.value)}
                   />

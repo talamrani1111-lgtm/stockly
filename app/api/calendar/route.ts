@@ -10,7 +10,7 @@ function dateStr(daysOffset: number) {
 export async function GET() {
   try {
     const from = dateStr(0);
-    const to = dateStr(7);
+    const to = dateStr(14);
     const data = await getEarningsCalendar(from, to);
     return NextResponse.json(data?.earningsCalendar ?? []);
   } catch (e: unknown) {

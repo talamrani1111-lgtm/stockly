@@ -65,7 +65,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (stored) {
       const s = JSON.parse(stored);
       if (s.lang) setLangState(s.lang);
-      if (s.portfolio) setPortfolioState(s.portfolio);
+      if (s.portfolio) {
+        // Auto-fix: ILS positions where manualPrice * shares > 500,000 are clearly wrong (index level instead of NAV)
+        const fixed = (s.portfolio as PortfolioItem[]).map(p => {
+          if (p.currency === "ILS" && p.manualPrice && p.manualPrice * p.shares > 500000) {
+            const corrected = p.avgPrice > 0 && p.avgPrice < 1000 ? p.avgPrice : p.shares > 0 ? 6128 / p.shares : p.manualPrice;
+            return { ...p, manualPrice: corrected };
+          }
+          return p;
+        });
+        setPortfolioState(fixed);
+        if (JSON.stringify(fixed) !== JSON.stringify(s.portfolio)) {
+          localStorage.setItem("app_state", JSON.stringify({ ...s, portfolio: fixed }));
+        }
+      }
       if (s.watchlist) setWatchlistState(s.watchlist);
       if (s.selectedSectors) setSelectedSectorsState(s.selectedSectors);
       if (s.customSectors) setCustomSectorsState(s.customSectors);
@@ -79,7 +92,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (token) {
       fetch("/api/portfolio", { headers: { "Authorization": `Bearer ${token}` } })
         .then(r => r.json())
-        .then(data => { if (Array.isArray(data)) setPortfolioState(data); })
+        .then(data => {
+          if (!Array.isArray(data)) return;
+          const fixed = data.map((p: PortfolioItem) => {
+            if (p.currency === "ILS" && !p.manualPrice && p.avgPrice > 0 && p.avgPrice < 1000) {
+              return { ...p, manualPrice: p.avgPrice };
+            }
+            if (p.currency === "ILS" && p.manualPrice && p.manualPrice * p.shares > 500000) {
+              const corrected = p.avgPrice > 0 && p.avgPrice < 1000 ? p.avgPrice : p.manualPrice;
+              return { ...p, manualPrice: corrected };
+            }
+            return p;
+          });
+          setPortfolioState(fixed);
+        })
         .catch(() => {});
     }
   }, []);

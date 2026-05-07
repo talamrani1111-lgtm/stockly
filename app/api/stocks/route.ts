@@ -3,7 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 // Map display symbols → Yahoo Finance symbols
 const YAHOO_MAP: Record<string, string> = {
   "TA-125": "%5ETA125.TA",
-  "TA-35": "%5ETA35.TA",
+  "TA-35":  "%5ETA35.TA",
+  "VIX":    "%5EVIX",
+  "SPX":    "%5EGSPC",
+  "DJI":    "%5EDJI",
 };
 
 async function getYahooQuote(symbol: string) {

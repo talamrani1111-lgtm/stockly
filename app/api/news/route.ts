@@ -11,29 +11,49 @@ type NewsItem = {
   image?: string;
 };
 
-async function fetchYahooNews(query: string): Promise<NewsItem[]> {
-  const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&newsCount=10&enableFuzzyQuery=false&quotesCount=0`;
+function decodeHtml(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
+}
+
+async function fetchYahooRSS(symbol: string): Promise<NewsItem[]> {
+  const url = `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${encodeURIComponent(symbol)}&region=US&lang=en-US`;
   try {
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0" },
-      cache: "no-store",
+      next: { revalidate: 300 },
     });
     if (!res.ok) return [];
-    const data = await res.json();
-    return (data.news ?? []).map((n: {
-      uuid: string; title: string; publisher: string; link: string;
-      providerPublishTime: number; relatedTickers?: string[];
-      thumbnail?: { resolutions?: { url: string }[] };
-    }) => ({
-      id: n.uuid,
-      headline: n.title,
-      summary: "",
-      source: n.publisher,
-      url: n.link,
-      datetime: n.providerPublishTime,
-      related: n.relatedTickers?.[0] ?? "",
-      image: n.thumbnail?.resolutions?.[0]?.url ?? "",
-    }));
+    const xml = await res.text();
+    const items: NewsItem[] = [];
+    const matches = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)];
+    for (const match of matches) {
+      const block = match[1];
+      const title = decodeHtml(block.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? "");
+      const link = block.match(/<link>([\s\S]*?)<\/link>/)?.[1]?.trim() ?? "";
+      const guid = block.match(/<guid[^>]*>([\s\S]*?)<\/guid>/)?.[1]?.trim() ?? link;
+      const pubDate = block.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1] ?? "";
+      const summary = decodeHtml(
+        (block.match(/<description>([\s\S]*?)<\/description>/)?.[1] ?? "")
+          .replace(/<[^>]+>/g, "")
+      );
+      if (!title || !link) continue;
+      items.push({
+        id: guid,
+        headline: title,
+        summary: summary.slice(0, 200),
+        source: "Yahoo Finance",
+        url: link,
+        datetime: pubDate ? Math.floor(Date.parse(pubDate) / 1000) : Math.floor(Date.now() / 1000),
+        related: symbol !== "SPY,QQQ,NVDA" ? symbol : undefined,
+      });
+    }
+    return items;
   } catch {
     return [];
   }
@@ -44,29 +64,27 @@ export async function GET(req: NextRequest) {
   const general = req.nextUrl.searchParams.get("general") === "true";
 
   try {
-    if (general) {
-      const news = await fetchYahooNews("stock market investing");
-      return NextResponse.json(news.slice(0, 30));
-    }
+    let allItems: NewsItem[] = [];
 
-    if (symbols) {
+    if (general) {
+      allItems = await fetchYahooRSS("SPY,QQQ,NVDA");
+    } else if (symbols) {
       const list = symbols.split(",").map(s => s.trim().toUpperCase()).filter(s => s !== "TA-125");
       if (!list.length) return NextResponse.json([]);
-
-      const results = await Promise.all(list.map(sym => fetchYahooNews(sym)));
-      const flat = results.flat();
-
-      const seen = new Set<string>();
-      const deduped = flat.filter(item => {
-        if (seen.has(item.id)) return false;
-        seen.add(item.id);
-        return true;
-      });
-      deduped.sort((a, b) => b.datetime - a.datetime);
-      return NextResponse.json(deduped.slice(0, 40));
+      const results = await Promise.all(list.slice(0, 5).map(sym => fetchYahooRSS(sym)));
+      allItems = results.flat();
+    } else {
+      return NextResponse.json([]);
     }
 
-    return NextResponse.json([]);
+    const seen = new Set<string>();
+    const deduped = allItems.filter(item => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+    deduped.sort((a, b) => b.datetime - a.datetime);
+    return NextResponse.json(deduped.slice(0, 40));
   } catch {
     return NextResponse.json([]);
   }

@@ -121,9 +121,48 @@ export default function DailySummary() {
     );
   }
 
+  // Compute total daily P&L
+  const totalDailyPnL = data.reduce((sum, { symbol, quote }) => {
+    const item = portfolio.find(p => p.symbol === symbol);
+    if (!quote || !item) return sum;
+    return sum + quote.change * item.shares;
+  }, 0);
+  const totalDailyPct = data.length > 0
+    ? data.reduce((sum, { quote }) => sum + (quote?.changePercent ?? 0), 0) / data.length
+    : 0;
+
+  function techLabel(quote: Quote | null, isRTL: boolean): { label: string; color: string } {
+    if (!quote) return { label: "", color: "" };
+    const dayRange = quote.high - quote.low;
+    const pos = dayRange > 0 ? ((quote.price - quote.low) / dayRange) * 100 : 50;
+    if (pos >= 80) return { label: isRTL ? "ליד שיא יומי 🔝" : "Near day high 🔝", color: "text-brand-green" };
+    if (pos <= 20) return { label: isRTL ? "ליד שפל יומי ⚠️" : "Near day low ⚠️", color: "text-brand-red" };
+    if (Math.abs(quote.changePercent) > 3) return { label: isRTL ? "תנודה חריגה 🔥" : "Unusual move 🔥", color: "text-brand-yellow" };
+    return { label: isRTL ? "מסחר רגיל" : "Normal trading", color: "text-gray-400" };
+  }
+
   return (
     <div dir={isRTL ? "rtl" : "ltr"}>
       <FearGreedWidget isRTL={isRTL} />
+
+      {/* Total daily P&L banner */}
+      {data.length > 0 && !loading && (
+        <div className={clsx(
+          "rounded-2xl border p-4 mb-4",
+          totalDailyPnL >= 0 ? "bg-green-gradient border-brand-green/20" : "bg-red-gradient border-brand-red/20"
+        )}>
+          <p className="text-gray-400 text-xs mb-1">{isRTL ? "סה\"כ שינוי יומי בתיק" : "Total portfolio daily change"}</p>
+          <div className="flex items-end gap-3">
+            <span className={clsx("text-2xl font-bold", totalDailyPnL >= 0 ? "text-brand-green" : "text-brand-red")}>
+              {totalDailyPnL >= 0 ? "+" : ""}${Math.abs(totalDailyPnL).toFixed(0)}
+            </span>
+            <span className={clsx("text-sm font-semibold mb-0.5 opacity-80", totalDailyPnL >= 0 ? "text-brand-green" : "text-brand-red")}>
+              ({totalDailyPct >= 0 ? "+" : ""}{totalDailyPct.toFixed(2)}% ממוצע)
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-white font-bold text-base">
           {isRTL ? "מה קרה היום" : "What Happened Today"}
@@ -140,6 +179,7 @@ export default function DailySummary() {
           const pnlDay = quote && portfolioItem
             ? quote.change * portfolioItem.shares
             : null;
+          const tech = techLabel(quote, isRTL);
 
           return (
             <div key={symbol} className={clsx(
@@ -174,13 +214,29 @@ export default function DailySummary() {
                 </div>
               </div>
 
-              {/* Day range */}
+              {/* Day range + technical */}
               {quote && (
-                <div className="flex gap-3 mb-3">
-                  <span className="text-gray-500 text-[10px]">
-                    {isRTL ? "טווח יומי:" : "Range:"}{" "}
-                    <span className="text-gray-400">${quote.low.toFixed(2)} – ${quote.high.toFixed(2)}</span>
-                  </span>
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-gray-500 text-[10px]">
+                      ${quote.low.toFixed(2)} – ${quote.high.toFixed(2)}
+                    </span>
+                    {tech.label && (
+                      <span className={clsx("text-[10px] font-semibold", tech.color)}>{tech.label}</span>
+                    )}
+                  </div>
+                  {(() => {
+                    const range = quote.high - quote.low;
+                    const pos = range > 0 ? ((quote.price - quote.low) / range) * 100 : 50;
+                    return (
+                      <div className="relative h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div className="absolute inset-y-0 left-0 rounded-full"
+                          style={{ width: `${pos}%`, background: up ? "#22c55e" : "#ef4444" }} />
+                        <div className="absolute inset-y-0 w-0.5 bg-white rounded-full"
+                          style={{ left: `${Math.min(99, pos)}%` }} />
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 

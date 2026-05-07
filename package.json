@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.0",
     "bcrypt": "^6.0.0",
     "clsx": "^2.1.1",
     "html2canvas": "^1.4.1",

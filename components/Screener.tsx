@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { useApp } from "@/lib/context";
-import { TrendingUp, TrendingDown, RefreshCw, Flame, Plus, X, Check } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, Flame, Plus, X, Check, ExternalLink, ChevronUp } from "lucide-react";
 import clsx from "clsx";
 
 type StockData = {
@@ -42,6 +42,120 @@ function marketCapLabel(cap?: number | null): { label: string; color: string } |
   return { label: "Small", color: "text-gray-400" };
 }
 
+type NewsItem = { headline: string; url: string; source: string; datetime: number };
+
+function timeAgo(ts: number): string {
+  const diff = Math.floor((Date.now() / 1000 - ts) / 60);
+  if (diff < 1) return "עכשיו";
+  if (diff < 60) return `${diff}m ago`;
+  if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
+  return `${Math.floor(diff / 1440)}d ago`;
+}
+
+function WhyMovedSheet({ stock, onClose, isRTL }: { stock: StockData; onClose: () => void; isRTL: boolean }) {
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const isUp = stock.changePercent >= 0;
+  const dayRange = stock.high - stock.low;
+  const dayPos = dayRange > 0 ? ((stock.price - stock.low) / dayRange) * 100 : 50;
+  const isHot = Math.abs(stock.changePercent) > 3;
+
+  useEffect(() => {
+    fetch(`/api/news?symbols=${stock.symbol}`)
+      .then(r => r.json())
+      .then(d => setNews(Array.isArray(d) ? d.slice(0, 5) : []))
+      .catch(() => setNews([]))
+      .finally(() => setLoading(false));
+  }, [stock.symbol]);
+
+  const reason = isHot
+    ? (isUp
+        ? (isRTL ? "עלייה חריגה — נפח מסחר גבוה או חדשות חיוביות" : "Unusual surge — high volume or positive catalyst")
+        : (isRTL ? "ירידה חריגה — מימוש רווחים או חדשות שליליות" : "Unusual drop — profit taking or negative catalyst"))
+    : (isUp
+        ? (isRTL ? "עלייה מתונה עם השוק" : "Modest gain with the market")
+        : (isRTL ? "ירידה מתונה עם השוק" : "Modest decline with the market"));
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" dir={isRTL ? "rtl" : "ltr"}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute bottom-0 left-0 right-0 bg-brand-surface rounded-t-3xl overflow-hidden flex flex-col" style={{ maxHeight: "80vh" }}>
+        <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
+          <div className="w-10 h-1 bg-white/20 rounded-full" />
+        </div>
+        <div className="flex items-center justify-between px-5 pb-4 flex-shrink-0">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-white font-bold text-xl">{stock.symbol}</span>
+              <span className={`text-base font-bold ${isUp ? "text-brand-green" : "text-brand-red"}`}>
+                {isUp ? "▲" : "▼"} {Math.abs(stock.changePercent).toFixed(2)}%
+              </span>
+            </div>
+            <p className="text-gray-400 text-sm">${stock.price.toFixed(2)}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-gray-400">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-4 pb-8 space-y-4">
+          {/* Why moved */}
+          <div className={`rounded-2xl border p-4 ${isUp ? "bg-green-gradient border-brand-green/20" : "bg-red-gradient border-brand-red/20"}`}>
+            <p className="text-gray-400 text-xs font-semibold mb-1">{isRTL ? "🔍 למה זזה?" : "🔍 Why did it move?"}</p>
+            <p className="text-white text-sm leading-relaxed">{reason}</p>
+          </div>
+
+          {/* Day range bar */}
+          <div className="bg-brand-card border border-brand-border rounded-2xl p-4">
+            <p className="text-gray-400 text-xs font-medium mb-3">{isRTL ? "טווח יומי" : "Day Range"}</p>
+            <div className="relative h-2 bg-white/10 rounded-full overflow-hidden mb-2">
+              <div className="absolute inset-y-0 left-0 rounded-full"
+                style={{ width: `${dayPos}%`, background: isUp ? "#22c55e" : "#ef4444" }} />
+              <div className="absolute inset-y-0 w-1 bg-white rounded-full -translate-x-0.5"
+                style={{ left: `${Math.min(99, dayPos)}%` }} />
+            </div>
+            <div className="flex justify-between text-[10px] text-gray-500">
+              <span>${stock.low.toFixed(2)}</span>
+              <span className="text-gray-300 font-semibold">${stock.price.toFixed(2)}</span>
+              <span>${stock.high.toFixed(2)}</span>
+            </div>
+            {stock.volume && (
+              <p className="text-gray-500 text-xs mt-2">
+                {isRTL ? "נפח:" : "Volume:"} <span className="text-gray-300">{formatVolume(stock.volume)}</span>
+              </p>
+            )}
+          </div>
+
+          {/* News */}
+          <div>
+            <p className="text-gray-400 text-xs font-semibold mb-2">{isRTL ? "חדשות קשורות" : "Related News"}</p>
+            {loading ? (
+              <div className="space-y-2">
+                {[1,2,3].map(i => <div key={i} className="bg-brand-card border border-brand-border rounded-xl p-3"><div className="shimmer h-3 w-full rounded mb-1" /><div className="shimmer h-2 w-1/2 rounded" /></div>)}
+              </div>
+            ) : news.length === 0 ? (
+              <p className="text-gray-600 text-sm text-center py-4">{isRTL ? "אין חדשות כרגע" : "No news found"}</p>
+            ) : (
+              <div className="space-y-2">
+                {news.map((n, i) => (
+                  <a key={i} href={n.url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-start gap-2 bg-brand-card border border-brand-border rounded-xl p-3 hover:bg-white/5 transition-colors group">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-xs font-medium line-clamp-2 group-hover:text-brand-accent transition-colors">{n.headline}</p>
+                      <p className="text-gray-500 text-[10px] mt-1">{n.source} · {timeAgo(n.datetime)}</p>
+                    </div>
+                    <ExternalLink size={11} className="text-gray-600 flex-shrink-0 mt-0.5" />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Screener() {
   const { t, isRTL, customSectors, setCustomSectors } = useApp();
   const [activeSector, setActiveSector] = useState<string>("technology");
@@ -51,6 +165,7 @@ export default function Screener() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newSectorName, setNewSectorName] = useState("");
   const [newSectorSymbols, setNewSectorSymbols] = useState("");
+  const [selectedStock, setSelectedStock] = useState<StockData | null>(null);
 
   const sectorLabels: Record<BuiltinSector, string> = {
     technology: t("technology"),
@@ -106,6 +221,9 @@ export default function Screener() {
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"}>
+      {selectedStock && (
+        <WhyMovedSheet stock={selectedStock} onClose={() => setSelectedStock(null)} isRTL={isRTL} />
+      )}
       {/* Sector selector */}
       <div className="mb-4">
         <p className="text-gray-500 text-xs font-medium mb-2.5 uppercase tracking-wide">{t("selectSectors")}</p>
@@ -229,10 +347,11 @@ export default function Screener() {
             const capInfo = marketCapLabel(stock.marketCap);
             return (
               <div key={stock.symbol}
+                onClick={() => setSelectedStock(stock)}
                 className={clsx(
-                  "rounded-2xl px-4 py-3 flex items-center justify-between border transition-all",
-                  isUp ? "bg-brand-card border-brand-green/10 hover:border-brand-green/25"
-                    : "bg-brand-card border-brand-red/10 hover:border-brand-red/25"
+                  "rounded-2xl px-4 py-3 flex items-center justify-between border transition-all cursor-pointer active:scale-[0.99]",
+                  isUp ? "bg-brand-card border-brand-green/10 hover:border-brand-green/30 hover:bg-white/[0.02]"
+                    : "bg-brand-card border-brand-red/10 hover:border-brand-red/30 hover:bg-white/[0.02]"
                 )}>
                 <div className="flex items-center gap-3">
                   <div className={clsx("w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0",
@@ -268,6 +387,7 @@ export default function Screener() {
                   <p className={clsx("text-xs opacity-70", isUp ? "text-brand-green" : "text-brand-red")}>
                     {isUp ? "+" : ""}${stock.change?.toFixed(2)}
                   </p>
+                  <p className="text-gray-600 text-[9px] mt-0.5">{isRTL ? "למה? ←" : "why? →"}</p>
                 </div>
               </div>
             );
