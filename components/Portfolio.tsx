@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useApp, PortfolioItem, PriceAlert } from "@/lib/context";
 import { useCountUp } from "@/lib/useCountUp";
-import { TrendingUp, TrendingDown, Plus, Trash2, Pencil, Check, ChevronUp, ChevronDown, LineChart, Share2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Plus, Trash2, Pencil, Check, ChevronUp, ChevronDown, LineChart, Share2, StickyNote } from "lucide-react";
 import clsx from "clsx";
 import StockDetailSheet from "./StockDetailSheet";
 import PortfolioSparkline, { savePortfolioValue } from "./PortfolioSparkline";
@@ -121,6 +121,17 @@ export default function Portfolio() {
   const [flashMap, setFlashMap] = useState<Record<string, "up" | "down">>({});
   const [valueFlash, setValueFlash] = useState<"up" | "down" | null>(null);
   const prevTotalRef = useRef(0);
+  const [notes, setNotes] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("stock_notes") ?? "{}"); } catch { return {}; }
+  });
+  const [noteOpen, setNoteOpen] = useState<string | null>(null);
+
+  function saveNote(symbol: string, text: string) {
+    const next = { ...notes, [symbol]: text };
+    if (!text.trim()) delete next[symbol];
+    setNotes(next);
+    try { localStorage.setItem("stock_notes", JSON.stringify(next)); } catch {}
+  }
 
   const symbols = portfolio.filter((p) => !p.manualPrice).map((p) => p.symbol);
 
@@ -667,6 +678,34 @@ export default function Portfolio() {
                           </p>
                         )}
                       </div>
+
+                      {/* Note */}
+                      {!editing && (
+                        <div className="mt-1.5 pt-1.5 border-t border-white/5" onClick={e => e.stopPropagation()}>
+                          {noteOpen === item.symbol ? (
+                            <textarea
+                              autoFocus
+                              value={notes[item.symbol] ?? ""}
+                              onChange={e => saveNote(item.symbol, e.target.value)}
+                              onBlur={() => setNoteOpen(null)}
+                              placeholder={isRTL ? "הוסף הערה..." : "Add a note..."}
+                              rows={2}
+                              className="w-full bg-transparent text-gray-400 text-[10px] focus:outline-none resize-none placeholder-gray-700 leading-relaxed"
+                            />
+                          ) : (
+                            <button
+                              onClick={() => setNoteOpen(item.symbol)}
+                              className="w-full flex items-center gap-1 text-start">
+                              {notes[item.symbol] ? (
+                                <span className="text-gray-600 text-[10px] line-clamp-1 flex-1 leading-relaxed">{notes[item.symbol]}</span>
+                              ) : (
+                                <span className="text-gray-800 text-[10px] flex-1">{isRTL ? "+ הוסף הערה" : "+ Add note"}</span>
+                              )}
+                              <StickyNote size={9} className={notes[item.symbol] ? "text-brand-accent/50" : "text-gray-700"} />
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
