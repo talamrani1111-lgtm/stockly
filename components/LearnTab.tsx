@@ -1,7 +1,9 @@
 "use client";
 import { useState } from "react";
 import { useApp } from "@/lib/context";
-import { BookOpen, ChevronDown, ChevronUp, Star, TrendingUp, Shield, PieChart, Search, CheckCircle } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp, Star, TrendingUp, Shield, PieChart, Search, CheckCircle, Zap } from "lucide-react";
+import Quiz from "./Quiz";
+import { addXP } from "@/lib/gamification";
 
 type Lesson = {
   id: string;
@@ -343,6 +345,10 @@ export default function LearnTab() {
   const { lang, isRTL } = useApp();
   const [activeCategory, setActiveCategory] = useState("basics");
   const [openLesson, setOpenLesson] = useState<string | null>(null);
+  const [quizLesson, setQuizLesson] = useState<{ id: string; title: { he: string; en: string } } | null>(null);
+  const [quizScores, setQuizScores] = useState<Record<string, number>>(() => {
+    try { return JSON.parse(localStorage.getItem("quiz_scores") ?? "{}"); } catch { return {}; }
+  });
   const [completed, setCompleted] = useState<Set<string>>(() => {
     try {
       const raw = localStorage.getItem("learn_completed");
@@ -357,6 +363,23 @@ export default function LearnTab() {
     try { localStorage.setItem("learn_completed", JSON.stringify([...next])); } catch {}
   }
 
+  function handleQuizComplete(lessonId: string, score: number, total: number) {
+    const pct = Math.round((score / total) * 100);
+    const next = { ...quizScores, [lessonId]: pct };
+    setQuizScores(next);
+    try { localStorage.setItem("quiz_scores", JSON.stringify(next)); } catch {}
+    // Award XP for correct answers
+    addXP(score * 10);
+    // Auto-mark lesson as complete if ≥75%
+    if (pct >= 75 && !completed.has(lessonId)) {
+      const nextCompleted = new Set(completed);
+      nextCompleted.add(lessonId);
+      setCompleted(nextCompleted);
+      try { localStorage.setItem("learn_completed", JSON.stringify([...nextCompleted])); } catch {}
+    }
+    setQuizLesson(null);
+  }
+
   const category = CATEGORIES.find(c => c.id === activeCategory)!;
   const totalLessons = CATEGORIES.reduce((s, c) => s + c.lessons.length, 0);
   const completedCount = completed.size;
@@ -364,6 +387,18 @@ export default function LearnTab() {
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"}>
+      {/* Quiz modal */}
+      {quizLesson && (
+        <Quiz
+          lessonId={quizLesson.id}
+          lessonTitle={quizLesson.title}
+          lang={lang as "he" | "en"}
+          isRTL={isRTL}
+          onClose={() => setQuizLesson(null)}
+          onComplete={(score, total) => handleQuizComplete(quizLesson.id, score, total)}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
         <div className="w-10 h-10 rounded-2xl bg-brand-accent/20 flex items-center justify-center">
@@ -466,9 +501,18 @@ export default function LearnTab() {
                     </>
                   )}
 
+                  {/* Quiz button */}
+                  <button onClick={() => setQuizLesson({ id: lesson.id, title: lesson.title })}
+                    className="mt-4 w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20 hover:bg-brand-yellow/20 transition-all">
+                    <Zap size={15} />
+                    {quizScores[lesson.id] != null
+                      ? (lang === "he" ? `שחק שוב — ${quizScores[lesson.id]}%` : `Retake Quiz — ${quizScores[lesson.id]}%`)
+                      : (lang === "he" ? "התחל חידון" : "Start Quiz")}
+                  </button>
+
                   {/* Mark complete button */}
                   <button onClick={() => toggleComplete(lesson.id)}
-                    className={`mt-4 w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all ${
+                    className={`mt-2 w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all ${
                       isDone
                         ? "bg-brand-green/10 text-brand-green border border-brand-green/20"
                         : "bg-brand-accent/10 text-brand-accent border border-brand-accent/20 hover:bg-brand-accent/20"
