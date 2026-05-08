@@ -1,9 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useApp } from "@/lib/context";
-import { BookOpen, ChevronDown, ChevronUp, Star, TrendingUp, Shield, PieChart, Search, CheckCircle, Zap } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp, Star, TrendingUp, Shield, PieChart, Search, CheckCircle, Zap, BookMarked, X } from "lucide-react";
 import Quiz from "./Quiz";
 import { addXP } from "@/lib/gamification";
+import quizData from "@/lib/quizData";
 
 type Lesson = {
   id: string;
@@ -356,11 +357,39 @@ export default function LearnTab() {
     } catch { return new Set(); }
   });
 
+  // Daily Challenge
+  const [dcSelected, setDcSelected] = useState<number | null>(null);
+  const [dcResult, setDcResult] = useState<"correct" | "wrong" | null>(null);
+  const [showGlossary, setShowGlossary] = useState(false);
+  const [glossarySearch, setGlossarySearch] = useState("");
+
+  const today = new Date().toISOString().slice(0, 10);
+  const allDCQ = quizData.flatMap(l => l.questions);
+  const dayNum = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+  const dcQ = allDCQ[dayNum % allDCQ.length];
+
+  useEffect(() => {
+    const stored = localStorage.getItem(`daily_${today}`);
+    if (stored === "correct") { setDcResult("correct"); setDcSelected(dcQ.correct); }
+    else if (stored === "wrong") setDcResult("wrong");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [today]);
+
   function toggleComplete(id: string) {
     const next = new Set(completed);
     if (next.has(id)) next.delete(id); else next.add(id);
     setCompleted(next);
     try { localStorage.setItem("learn_completed", JSON.stringify([...next])); } catch {}
+  }
+
+  function answerDC(idx: number) {
+    if (dcResult) return;
+    setDcSelected(idx);
+    const isCorrect = idx === dcQ.correct;
+    const res: "correct" | "wrong" = isCorrect ? "correct" : "wrong";
+    setDcResult(res);
+    localStorage.setItem(`daily_${today}`, res);
+    addXP(isCorrect ? 50 : 10);
   }
 
   function handleQuizComplete(lessonId: string, score: number, total: number) {
@@ -387,6 +416,46 @@ export default function LearnTab() {
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"}>
+      {/* Glossary modal */}
+      {showGlossary && (
+        <div className="fixed inset-0 z-50 bg-black/85 flex flex-col" dir={isRTL ? "rtl" : "ltr"}>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-brand-border bg-brand-card">
+            <div className="flex items-center gap-2">
+              <BookMarked size={15} className="text-brand-accent" />
+              <span className="text-white font-bold text-sm">{lang === "he" ? "מילון מושגים" : "Glossary"}</span>
+            </div>
+            <button onClick={() => { setShowGlossary(false); setGlossarySearch(""); }} className="text-gray-400 hover:text-white">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="px-4 py-2.5 border-b border-brand-border bg-brand-card">
+            <input
+              type="text" value={glossarySearch}
+              onChange={e => setGlossarySearch(e.target.value)}
+              placeholder={lang === "he" ? "חיפוש מונח..." : "Search term..."}
+              className="w-full bg-brand-surface border border-brand-border rounded-xl px-3 py-2 text-white text-sm focus:outline-none placeholder-gray-600"
+            />
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+            {CATEGORIES.flatMap(cat => cat.lessons.flatMap(lesson =>
+              (lesson.glossary ?? []).map(g => ({ ...g, lessonTitle: lesson.title }))
+            ))
+              .filter(g => !glossarySearch ||
+                g.term.toLowerCase().includes(glossarySearch.toLowerCase()) ||
+                g[lang].toLowerCase().includes(glossarySearch.toLowerCase())
+              )
+              .map((g, i) => (
+                <div key={i} className="bg-brand-surface rounded-xl px-3 py-2.5">
+                  <p className="text-brand-accent text-sm font-bold">{g.term}</p>
+                  <p className="text-gray-300 text-xs mt-0.5">{g[lang]}</p>
+                  <p className="text-gray-600 text-[10px] mt-1">{g.lessonTitle[lang]}</p>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      )}
+
       {/* Quiz modal */}
       {quizLesson && (
         <Quiz
@@ -420,6 +489,54 @@ export default function LearnTab() {
         <div className="h-full bg-brand-accent rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
       </div>
 
+      {/* Daily Challenge */}
+      {dcQ && (
+        <div className={`rounded-2xl border p-4 mb-4 transition-all ${
+          dcResult === "correct" ? "bg-brand-green/5 border-brand-green/25"
+          : dcResult === "wrong"   ? "bg-brand-red/5 border-brand-red/25"
+          : "bg-brand-card border-brand-border"}`}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm">⚡</span>
+            <span className="text-gray-400 text-[10px] font-semibold uppercase tracking-wide">
+              {lang === "he" ? "אתגר יומי" : "Daily Challenge"}
+            </span>
+            {dcResult && (
+              <span className={`ms-auto text-[11px] font-bold ${dcResult === "correct" ? "text-brand-green" : "text-brand-red"}`}>
+                {dcResult === "correct"
+                  ? (lang === "he" ? "✓ נכון! +50 XP" : "✓ Correct! +50 XP")
+                  : (lang === "he" ? "✗ שגוי — +10 XP" : "✗ Wrong — +10 XP")}
+              </span>
+            )}
+          </div>
+          <p className="text-white text-sm font-semibold mb-3 leading-relaxed">{dcQ.question[lang]}</p>
+          <div className="space-y-2">
+            {dcQ.options.map((opt, i) => {
+              let cls = "w-full text-start rounded-xl px-3 py-2.5 text-sm border transition-all ";
+              if (!dcResult) {
+                cls += "bg-brand-surface border-brand-border text-gray-300 hover:border-brand-accent/50 hover:text-white";
+              } else if (i === dcQ.correct) {
+                cls += "bg-brand-green/15 border-brand-green/40 text-brand-green font-semibold";
+              } else if (i === dcSelected && i !== dcQ.correct) {
+                cls += "bg-brand-red/15 border-brand-red/30 text-brand-red";
+              } else {
+                cls += "bg-brand-surface border-brand-border text-gray-600";
+              }
+              return (
+                <button key={i} onClick={() => answerDC(i)} disabled={!!dcResult} className={cls}>
+                  <span className="text-gray-500 me-2 text-xs">{["A","B","C","D"][i]}.</span>
+                  {opt[lang]}
+                </button>
+              );
+            })}
+          </div>
+          {dcResult && (
+            <div className={`mt-3 rounded-xl px-3 py-2 text-xs text-gray-400 leading-relaxed ${dcResult === "correct" ? "bg-brand-green/8" : "bg-brand-red/8"}`}>
+              {dcQ.explanation[lang]}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Category tabs */}
       <div className="flex gap-2 overflow-x-auto scrollbar-none mb-4 pb-1">
         {CATEGORIES.map(cat => {
@@ -441,6 +558,11 @@ export default function LearnTab() {
             </button>
           );
         })}
+        <button onClick={() => setShowGlossary(true)}
+          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 text-gray-500 hover:text-gray-300 transition-all">
+          <BookMarked size={11} />
+          {lang === "he" ? "מילון" : "Glossary"}
+        </button>
       </div>
 
       {/* Lessons */}
