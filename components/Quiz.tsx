@@ -4,6 +4,8 @@ import { X, ChevronRight, RotateCcw } from "lucide-react";
 import clsx from "clsx";
 import quizData from "@/lib/quizData";
 
+import type { QuizQuestion } from "@/lib/quizData";
+
 type Props = {
   lessonId: string;
   lessonTitle: { he: string; en: string };
@@ -11,6 +13,7 @@ type Props = {
   isRTL: boolean;
   onClose: () => void;
   onComplete: (score: number, total: number) => void;
+  overrideQuestions?: QuizQuestion[];
 };
 
 const LABELS_HE = ["א", "ב", "ג", "ד"];
@@ -56,9 +59,10 @@ export default function Quiz({
   isRTL,
   onClose,
   onComplete,
+  overrideQuestions,
 }: Props) {
   const lessonQuiz = quizData.find((q) => q.lessonId === lessonId);
-  const questions = lessonQuiz?.questions ?? [];
+  const questions = overrideQuestions ?? lessonQuiz?.questions ?? [];
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);

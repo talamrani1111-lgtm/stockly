@@ -3,8 +3,9 @@ import { useState, useEffect } from "react";
 import { useApp } from "@/lib/context";
 import { BookOpen, ChevronDown, ChevronUp, Star, TrendingUp, Shield, PieChart, Search, CheckCircle, Zap, BookMarked, X } from "lucide-react";
 import Quiz from "./Quiz";
+import LessonAnimation from "./LessonAnimation";
 import { addXP } from "@/lib/gamification";
-import quizData from "@/lib/quizData";
+import quizData, { QuizQuestion } from "@/lib/quizData";
 
 type Lesson = {
   id: string;
@@ -357,6 +358,32 @@ export default function LearnTab() {
     } catch { return new Set(); }
   });
 
+  // Practice Mode
+  const [practiceOpen, setPracticeOpen] = useState(false);
+  const [practiceScope, setPracticeScope] = useState<"all" | string>("all");
+  const [practiceQuiz, setPracticeQuiz] = useState<{ questions: QuizQuestion[]; title: { he: string; en: string } } | null>(null);
+
+  function buildPracticeQuestions(scope: "all" | string): QuizQuestion[] {
+    const pool = scope === "all"
+      ? quizData.flatMap(l => l.questions)
+      : quizData.filter(l => {
+          const cat = CATEGORIES.find(c => c.lessons.some(ls => ls.id === l.lessonId));
+          return cat?.id === scope;
+        }).flatMap(l => l.questions);
+    // Shuffle
+    return [...pool].sort(() => Math.random() - 0.5).slice(0, Math.min(pool.length, 20));
+  }
+
+  function startPractice(scope: "all" | string) {
+    const questions = buildPracticeQuestions(scope);
+    if (!questions.length) return;
+    const title = scope === "all"
+      ? { he: "אימון כללי", en: "General Practice" }
+      : { he: CATEGORIES.find(c => c.id === scope)?.title.he ?? "אימון", en: CATEGORIES.find(c => c.id === scope)?.title.en ?? "Practice" };
+    setPracticeQuiz({ questions, title });
+    setPracticeOpen(false);
+  }
+
   // Daily Challenge
   const [dcSelected, setDcSelected] = useState<number | null>(null);
   const [dcResult, setDcResult] = useState<"correct" | "wrong" | null>(null);
@@ -456,6 +483,58 @@ export default function LearnTab() {
         </div>
       )}
 
+      {/* Practice scope picker */}
+      {practiceOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-end" dir={isRTL ? "rtl" : "ltr"}>
+          <div className="w-full bg-brand-card rounded-t-3xl border-t border-brand-border p-5">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-white font-bold text-base">{lang === "he" ? "בחר נושא לאימון" : "Choose Practice Topic"}</p>
+              <button onClick={() => setPracticeOpen(false)} className="text-gray-500 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="space-y-2">
+              <button onClick={() => startPractice("all")}
+                className="w-full flex items-center gap-3 bg-brand-accent/10 border border-brand-accent/20 text-white rounded-2xl px-4 py-3 text-sm font-semibold hover:bg-brand-accent/20 transition-all">
+                <span className="text-xl">🎯</span>
+                <div className="text-start">
+                  <p>{lang === "he" ? "כל הנושאים" : "All Topics"}</p>
+                  <p className="text-gray-500 text-xs font-normal">{lang === "he" ? "עד 20 שאלות מעורבות" : "Up to 20 mixed questions"}</p>
+                </div>
+              </button>
+              {CATEGORIES.map(cat => (
+                <button key={cat.id} onClick={() => startPractice(cat.id)}
+                  className="w-full flex items-center gap-3 bg-white/5 border border-brand-border text-white rounded-2xl px-4 py-3 text-sm font-semibold hover:bg-white/8 transition-all">
+                  <span className={cat.color}>{cat.icon}</span>
+                  <div className="text-start">
+                    <p>{cat.title[lang]}</p>
+                    <p className="text-gray-500 text-xs font-normal">
+                      {cat.lessons.length} {lang === "he" ? "שיעורים" : "lessons"} · {cat.lessons.length * 4}+ {lang === "he" ? "שאלות" : "questions"}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Practice quiz */}
+      {practiceQuiz && (
+        <Quiz
+          lessonId="practice"
+          lessonTitle={practiceQuiz.title}
+          lang={lang as "he" | "en"}
+          isRTL={isRTL}
+          overrideQuestions={practiceQuiz.questions}
+          onClose={() => setPracticeQuiz(null)}
+          onComplete={(score, total) => {
+            addXP(score * 10);
+            setPracticeQuiz(null);
+          }}
+        />
+      )}
+
       {/* Quiz modal */}
       {quizLesson && (
         <Quiz
@@ -481,7 +560,11 @@ export default function LearnTab() {
             {lang === "he" ? `${completedCount} / ${totalLessons} שיעורים` : `${completedCount} / ${totalLessons} lessons`}
           </p>
         </div>
-        <div className="text-brand-accent font-bold text-sm">{progress}%</div>
+        <button onClick={() => setPracticeOpen(true)}
+          className="flex items-center gap-1.5 bg-brand-accent text-white rounded-xl px-3 py-1.5 text-xs font-bold hover:bg-blue-500 transition-all press-effect">
+          <Zap size={12} />
+          {lang === "he" ? "אימון" : "Practice"}
+        </button>
       </div>
 
       {/* Progress bar */}
@@ -593,8 +676,13 @@ export default function LearnTab() {
 
               {isOpen && (
                 <div className="px-4 pb-4 border-t border-brand-border">
+                  {/* Chart animation demo */}
+                  <div className="mt-4">
+                    <LessonAnimation lessonId={lesson.id} lang={lang as "he" | "en"} />
+                  </div>
+
                   {/* Key points */}
-                  <p className="text-gray-400 text-[10px] font-semibold uppercase tracking-wide mt-4 mb-2">
+                  <p className="text-gray-400 text-[10px] font-semibold uppercase tracking-wide mt-2 mb-2">
                     {lang === "he" ? "נקודות מפתח" : "Key Points"}
                   </p>
                   <ul className="space-y-2">
